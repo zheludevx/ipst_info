@@ -6,7 +6,6 @@
 #include <boost/filesystem/path.hpp>
 #include <boost/program_options.hpp>
 #include <iostream>
-#include <fstream>
 #include <reg_12.h>
 
 bool outputNode()
@@ -15,9 +14,41 @@ bool outputNode()
     bool bRes = lib.Load();
     std::cout << "RES>" << bRes << std::endl << std::endl;
     std::string sPath = "$(NITAETC)/_System/ip_st/ip_st.xml";
+    std::string sPathSystemXml = "$(NITAETC)/system.xml";
+    lib.ExpandString(sPathSystemXml);
     lib.ExpandString(sPath);
     std::cout << sPath << std::endl;
 
+    registry::CXMLProxy xmlFile;
+    if (xmlFile.load(sPathSystemXml))
+    {
+        registry::CNode nodeRoot(&xmlFile, "");
+        std::vector<std::string> vNodeValue;
+        nodeRoot.getValue("Config", vNodeValue);
+        for (unsigned int i = 0; i < vNodeValue.size(); i++)
+             std::cout << vNodeValue[i] << std::endl;
+        std::cout << std::endl << std::endl;
+
+    }
+
+    if(xmlFile.load(sPath))
+    {
+        registry::CNode nodeRoot(&xmlFile, "");
+        std::vector<std::string> vNodeValue;
+        nodeRoot.getValue("_Srvr", vNodeValue);
+        if (nodeRoot.isSubNode("_Srvr"))
+        {
+            registry::CNode nodeCount = nodeRoot.getSubNode("_Srvr");
+            std::cout << "Node count = " << nodeCount.getSubNodeCount() << std::endl;
+            for (int i = 0; i < nodeCount.getSubNodeCount(); i++)
+                 nodeRoot.getValue("Name", vNodeValue);
+
+            for (unsigned int i = 0; i < vNodeValue.size(); i++)
+                 std::cout << vNodeValue[i] << std::endl;
+
+        }
+
+    }
 
     std::cout << std::endl << std::endl;
     lib.Free();
