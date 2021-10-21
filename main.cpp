@@ -35,7 +35,6 @@ bool outputNode()
     {
         registry::CNode nodeRoot(&xmlFile, "");
         std::vector<std::string> vNodeValue;
-        nodeRoot.getValue("_Srvr", vNodeValue);
         if (nodeRoot.isSubNode("_Srvr"))
         {
             registry::CNode nodeCount = nodeRoot.getSubNode("_Srvr");
