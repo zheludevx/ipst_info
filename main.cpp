@@ -8,57 +8,52 @@
 #include <iostream>
 #include <reg_12.h>
 
-bool outputNode()
+bool checkArg(const std::string& sArgName, const std::string& sFileName)
+{
+    bool bRes = false;
+    if (sArgName == sFileName)
+        bRes = true;
+    return bRes;
+}
+
+bool conversionPath(std::string& sPath)
 {
     plug_key::CModeInfoPlug lib;
     bool bRes = lib.Load();
     std::cout << "RES>" << bRes << std::endl << std::endl;
-    std::string sPath = "$(NITAETC)/_System/ip_st/ip_st.xml";
-    std::string sPathSystemXml = "$(NITAETC)/system.xml";
-    lib.ExpandString(sPathSystemXml);
     lib.ExpandString(sPath);
     std::cout << sPath << std::endl;
-
-    registry::CXMLProxy xmlFile;
-    if (xmlFile.load(sPathSystemXml))
-    {
-        registry::CNode nodeRoot(&xmlFile, "");
-        std::vector<std::string> vNodeValue;
-        nodeRoot.getValue("Config", vNodeValue);
-        for (unsigned int i = 0; i < vNodeValue.size(); i++)
-             std::cout << vNodeValue[i] << std::endl;
-        std::cout << std::endl << std::endl;
-
-    }
-
-    if(xmlFile.load(sPath))
-    {
-        registry::CNode nodeRoot(&xmlFile, "");
-        std::vector<std::string> vNodeValue;
-        if (nodeRoot.isSubNode("_Srvr"))
-        {
-            registry::CNode nodeCount = nodeRoot.getSubNode("_Srvr");
-            std::cout << "Node count = " << nodeCount.getSubNodeCount() << std::endl;
-            for (int i = 0; i < nodeCount.getSubNodeCount(); i++)
-                 nodeRoot.getValue("Name", vNodeValue);
-
-            for (unsigned int i = 0; i < vNodeValue.size(); i++)
-                 std::cout << vNodeValue[i] << std::endl;
-
-        }
-
-    }
 
     std::cout << std::endl << std::endl;
     lib.Free();
     return bRes;
 }
 
-bool checkArg(const std::string& sArgName, const std::string& sFileName)
+bool getNodeName(const std::string& sPath)
 {
+    registry::CXMLProxy xmlFile;
     bool bRes = false;
-    if (sArgName == sFileName)
-        bRes = true;
+    if(xmlFile.load(sPath))
+    {
+        registry::CNode nodeRoot(&xmlFile, "");
+        std::string sNodeName;
+        if (nodeRoot.isSubNode("Channels"))
+        {
+            bRes = true;
+            registry::CNode nodeCount = nodeRoot.getSubNode("Channels");
+            std::cout << "Node count = " << nodeCount.getSubNodeCount() << std::endl << std::endl;
+            for (int i = 0; i < nodeCount.getSubNodeCount(); i++)
+            {
+                registry::CNode nodeValue = nodeCount.getSubNode(i);
+                nodeValue.getValue("Name", sNodeName);
+                std::cout << sNodeName << std::endl;
+
+            }
+
+        }
+
+    }
+    std::cout << std::endl << std::endl;
     return bRes;
 }
 
@@ -98,35 +93,34 @@ bool cinArg(int ac, char* av[], boost::program_options::variables_map& vm)
 
 int main(int argc, char* argv[])
 {
-    std::string sPath = getenv("NITAETC");
-    bool bCheckPath = getenv("NITAETC");
+    std::string sPath = "$(NITAETC)/_System/ip_st/ip_st.xml";
+    bool bCheckPath = conversionPath(sPath);
     if (!bCheckPath)
     {
-#ifdef WIN32
-        sPath = "c:\\Nita\\Config";
-#else
-        sPath = "/soft/etc";
-#endif
+        #ifdef WIN32
+            sPath = "c:\\Nita\\Config";
+        #else
+            sPath = "/soft/etc";
+        #endif
     }
 
     try
     {
-        boost::filesystem::path pFileName(sPath+"/_System/ip_st/ip_st.xml");
-        std::string sFileName = pFileName.filename().string();
-        boost::program_options::variables_map vm;
-        cinArg(argc, argv, vm);
+       boost::filesystem::path pFileName(sPath);
+       std::string sFileName = pFileName.filename().string();
+       boost::program_options::variables_map vm;
+       cinArg(argc, argv, vm);
 
-        if (vm.count("channels"))
-        {
-            std::cout << "arg:" << vm["channels"].as<std::string>() << std::endl << std::endl << std::endl;
-            std::string sArgName = vm["channels"].as<std::string>();
+       if (vm.count("channels"))
+       {
+           std::cout << "arg:" << vm["channels"].as<std::string>() << std::endl << std::endl << std::endl;
+           std::string sArgName = vm["channels"].as<std::string>();
 
-            if (checkArg(sArgName, sFileName))
-                outputNode();
-            else
-                std::cout << "ERR> Can't set channel by name: " << sArgName << std::endl << std::endl << std::endl;
-        }
-
+           if (checkArg(sArgName, sFileName))
+               getNodeName(sPath);
+           else
+               std::cout << "ERR> Can't set channel by name: " << sArgName << std::endl << std::endl << std::endl;
+       }
 
     }
     catch (const std::exception& e)
