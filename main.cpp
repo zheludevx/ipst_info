@@ -8,13 +8,6 @@
 #include <iostream>
 #include <reg_12.h>
 
-bool checkArg(const std::string& sArgName, const std::string& sFileName)
-{
-    bool bRes = false;
-    if (sArgName == sFileName)
-        bRes = true;
-    return bRes;
-}
 
 bool conversionPath(std::string& sPath)
 {
@@ -47,7 +40,6 @@ bool getNodeName(const std::string& sPath)
                 registry::CNode nodeValue = nodeCount.getSubNode(i);
                 nodeValue.getValue("Name", sNodeName);
                 std::cout << sNodeName << std::endl;
-
             }
 
         }
@@ -57,6 +49,12 @@ bool getNodeName(const std::string& sPath)
     return bRes;
 }
 
+/*bool getNodeSource(const std::string& sPath)
+{
+ ...
+
+}*/
+
 bool cinArg(int ac, char* av[], boost::program_options::variables_map& vm)
 {
     bool bRes = false;
@@ -64,10 +62,11 @@ bool cinArg(int ac, char* av[], boost::program_options::variables_map& vm)
     {
         boost::program_options::options_description desc("Command Parser");
         desc.add_options()
-                ("help,h", "show help")
-                ("channels,c",
+                ("help,h",      "show help")
+                ("channels,c",  "show channel")
+                ("ch",
                  boost::program_options::value<std::string>(),
-                 "set channel")
+                 "set channel name")
                 ;
         boost::program_options::store(boost::program_options::parse_command_line(ac,av,desc), vm);
         std::cout << std::endl << std::endl;
@@ -94,15 +93,6 @@ bool cinArg(int ac, char* av[], boost::program_options::variables_map& vm)
 int main(int argc, char* argv[])
 {
     std::string sPath = "$(NITAETC)/_System/ip_st/ip_st.xml";
-    bool bCheckPath = conversionPath(sPath);
-    if (!bCheckPath)
-    {
-        #ifdef WIN32
-            sPath = "c:\\Nita\\Config";
-        #else
-            sPath = "/soft/etc";
-        #endif
-    }
 
     try
     {
@@ -112,15 +102,19 @@ int main(int argc, char* argv[])
        cinArg(argc, argv, vm);
 
        if (vm.count("channels"))
-       {
-           std::cout << "arg:" << vm["channels"].as<std::string>() << std::endl << std::endl << std::endl;
-           std::string sArgName = vm["channels"].as<std::string>();
-
-           if (checkArg(sArgName, sFileName))
+           if (conversionPath(sPath))
                getNodeName(sPath);
+
+       /*if (vm.count("ch"))
+       {
+           std::cout << "arg:" << vm["ch"].as<std::string>() << std::endl << std::endl << std::endl;
+           std::string sArgName = vm["ch"].as<std::string>();
+
+           if ()
+               ...
            else
                std::cout << "ERR> Can't set channel by name: " << sArgName << std::endl << std::endl << std::endl;
-       }
+       }*/
 
     }
     catch (const std::exception& e)
