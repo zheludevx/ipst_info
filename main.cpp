@@ -82,33 +82,34 @@ bool getNodeSource(const std::string& sPath, const std::string& sArgName)
         std::string sGetChannelValue;
         if (nodeRoot.isSubNode("Sources"))
         {
-            registry::CNode nodeNameSources = nodeRoot.getSubNode("Sources");
-            //std::cout << std::endl << "Node count = " << nodeNameSources.getSubNodeCount() << std::endl;
-            for (int i = 0; i < nodeNameSources.getSubNodeCount(); i++)
+            registry::CNode nodeSourceTypes = nodeRoot.getSubNode("Sources");
+            //std::cout << std::endl << "Node count = " << nodeSourceTypes.getSubNodeCount() << std::endl;
+            for (int i = 0; i < nodeSourceTypes.getSubNodeCount(); i++)
             {
-                registry::CNode nodeForCheckArg = nodeNameSources.getSubNode(i);
-                //std::cout << nodeForCheckArg.getName() << std::endl;
-
-                nodeForCheckArg.getValue("TypeName", sSources);
+                registry::CNode nodeSources = nodeSourceTypes.getSubNode(i);
+                //std::cout << nodeSources.getSubNodeCount() << std::endl;
+                nodeSources.getValue("TypeName", sSources);
                 //std::cout << sSources << std::endl;
 
                 if (sSources == sTypeName)
                 {
+                    //std::cout << nodeSources.getSubNodeCount() << std::endl;
                     //std::cout << sSources << std::endl;
-                    for (int j = 0; j < 30; j++)
+                    for (int j = 0; j < nodeSources.getSubNodeCount(); j++)
                     {
-                        registry::CNode nodeValue = nodeForCheckArg.getSubNode(j);
-                        nodeValue.getValue("ChannelName", sChannelName);
-                        //std::cout << nodeValue.getName() << std::endl;
+                        registry::CNode nodeItem = nodeSources.getSubNode(j);
+                        nodeItem.getValue("ChannelName", sChannelName);
+                        //std::cout << nodeItem.getName() << std::endl;
                         //std::cout << sChannelName << std::endl;
                         if (sChannelName == sArgName)
                         {
-                            nodeValue.getValue("Name", sGetChannelValue);
+                            nodeItem.getValue("Name", sGetChannelValue);
                             std::cout << sGetChannelValue << std::endl;
                             bRes = true;
                         }
-                    }
 
+                    }
+                    break;
                 }
             }
 
@@ -116,8 +117,6 @@ bool getNodeSource(const std::string& sPath, const std::string& sArgName)
         }
 
     }
-
-
     std::cout << std::endl << std::endl;
     return bRes;
 }
