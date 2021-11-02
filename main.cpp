@@ -24,9 +24,10 @@ bool convertPath(std::string& sPath)
     return bRes;
 }
 
-std::string checkChannelName(const std::string& sPath, const std::string& Channel)
+bool checkChannelName(const std::string& sPath, const std::string& sChannel)
 {
-    std::string sCheckNonstrict;
+    bool bRes = false;
+    //std::string sCheckNonstrict;
     registry::CXMLProxy xmlFile;
     if(xmlFile.load(sPath))
     {
@@ -42,16 +43,17 @@ std::string checkChannelName(const std::string& sPath, const std::string& Channe
                       registry::CNode nodeItem = nodeSources.getSubNode(j);
                       std::string sItemChannelName;
                       nodeItem.getValue("ChannelName", sItemChannelName);
-                      if (boost::algorithm::iequals(sItemChannelName, Channel))
+                      if (boost::algorithm::iequals(sItemChannelName, sChannel))
                       {
-                          sCheckNonstrict = sItemChannelName;
+                          bRes = true;
+                          //sCheckNonstrict = sItemChannelName;
                           break;
                       }
                  }
              }
          }
      }
-     return sCheckNonstrict;
+     return bRes; //sCheckNonstrict;
 }
 
 bool outputChannels(const std::string& sPath)
@@ -81,12 +83,12 @@ bool outputChannels(const std::string& sPath)
 
 bool outputSourcesByChannel(const std::string& sPath, const std::string& sChannel)
 {
-    registry::CXMLProxy xmlFile;
     bool bRes = false;
+    registry::CXMLProxy xmlFile;
     if(xmlFile.load(sPath))
     {
         registry::CNode nodeRoot(&xmlFile, "");
-        std::string sChannelNonstrict = checkChannelName(sPath, sChannel);
+        //std::string sChannelNonstrict = checkChannelName(sPath, sChannel);
         std::string sTypeName;
         if (nodeRoot.isSubNode("Channels"))
         {
@@ -96,7 +98,8 @@ bool outputSourcesByChannel(const std::string& sPath, const std::string& sChanne
                 registry::CNode nodeValue = nodeCount.getSubNode(i);
                 std::string sNodeName;
                 nodeValue.getValue("Name", sNodeName);
-                if (sChannelNonstrict == sNodeName)
+                //if(sChannelNonstrict == sNodeName)
+                if (boost::algorithm::iequals(sChannel, sNodeName))
                 {
                     nodeValue.getValue("TypeName", sTypeName);
                     break;
@@ -121,7 +124,8 @@ bool outputSourcesByChannel(const std::string& sPath, const std::string& sChanne
                         std::string sItemChannelName;
                         nodeItem.getValue("ChannelName", sItemChannelName);
 
-                        if (sChannelNonstrict == sItemChannelName)
+                        //if (sChannelNonstrict == sItemChannelName)
+                        if (boost::algorithm::iequals(sChannel, sItemChannelName))
                         {
                             std::string sItemSourceName;
                             nodeItem.getValue("Name", sItemSourceName);
@@ -191,10 +195,7 @@ bool parseArgs(int ac, char* av[], boost::program_options::variables_map& vm)
         std::cout << std::endl << std::endl;
 
         if(vm.count("help") || ( vm.size() == 0 ))
-        {
             std::cout << desc << std::endl << std::endl;
-            exit(0);
-        }
         else
         {
             boost::program_options::notify(vm);
@@ -221,27 +222,29 @@ int main(int argc, char* argv[])
        boost::filesystem::path pFileName(sPath);
        std::string sFileName = pFileName.filename().string();
        boost::program_options::variables_map vm;
-       parseArgs(argc, argv, vm);
 
 
-       if(convertPath(sPath))
+       if(parseArgs(argc, argv, vm))
        {
-          if (vm.count("channels"))
-              outputChannels(sPath);
-
-          if (vm.count("ch"))
+          if(convertPath(sPath))
           {
-             std::cout << "Channel:" << vm["ch"].as<std::string>() << std::endl << std::endl << std::endl;
-             std::string sChannel = vm["ch"].as<std::string>();
-             std::string sChannelAfterCheck = checkChannelName(sPath, sChannel);
-             if (!sChannelAfterCheck.empty())
-                 outputSourcesByChannel(sPath, sChannel);
-             else
-                 std::cout << "ERR> Can't set channel by name: " << sChannel << std::endl << std::endl << std::endl;
-          }
+             if (vm.count("channels"))
+                 outputChannels(sPath);
 
-          if(vm.count("sources"))
-             outputSources(sPath);
+             if (vm.count("ch"))
+             {
+                std::cout << "Channel:" << vm["ch"].as<std::string>() << std::endl << std::endl << std::endl;
+                std::string sChannel = vm["ch"].as<std::string>();
+                //std::string sChannelAfterCheck = checkChannelName(sPath, sChannel);
+                if (checkChannelName(sPath, sChannel))
+                    outputSourcesByChannel(sPath, sChannel);
+                else
+                    std::cout << "ERR> Can't set channel by name: " << sChannel << std::endl << std::endl << std::endl;
+             }
+
+             if(vm.count("sources"))
+                outputSources(sPath);
+          }
        }
     }
     catch (const std::exception& e)
