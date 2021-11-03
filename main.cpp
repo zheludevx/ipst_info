@@ -361,7 +361,7 @@ bool parseArgs(int ac, char* av[], boost::program_options::variables_map& vm)
         boost::program_options::options_description desc("Command Parser");
         desc.add_options()
                 ("help,h",      "show help")
-                ("net",          "show net")
+                ("net",         "show net")
                 ("display,d",
                  boost::program_options::value<std::string>(),
                  " arg is c or s: c - display channels, s - display sources")
@@ -371,9 +371,7 @@ bool parseArgs(int ac, char* av[], boost::program_options::variables_map& vm)
                 ("source,s",
                  boost::program_options::value<std::string>(),
                  "show info for named source")
-                ("info,i",
-                 boost::program_options::value<std::string>(),
-                 "show full information - all parameters")
+                ("info,i",      "show full information - all parameters")
                 ;
         boost::program_options::store(boost::program_options::parse_command_line(ac,av,desc), vm);
         std::cout << std::endl << std::endl;
@@ -422,12 +420,9 @@ int main(int argc, char* argv[])
                     std::cout << "ERR> Can't set channel by name: " << sChannel << std::endl << std::endl << std::endl;
 
                 if(vm.count("info"))
-                {
-                    std::string sArgInfo = vm["info"].as<std::string>();
-                    if(sArgInfo == "c")
-                       outputChannelInfo(sPath, sChannel);
-                    if(sArgInfo == "s")
-                       outputSourcesInfo(sPath, sChannel);
+                { 
+                   outputChannelInfo(sPath, sChannel);
+                   outputSourcesInfo(sPath, sChannel);
                 }
              }
 
