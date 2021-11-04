@@ -14,11 +14,7 @@ bool convertPath(std::string& sPath)
 {
     plug_key::CModeInfoPlug lib;
     bool bRes = lib.Load();
-   // std::cout << "RES>" << bRes << std::endl << std::endl;
     lib.ExpandString(sPath);
-   // std::cout << sPath << std::endl;
-
-   // std::cout << std::endl << std::endl;
     lib.Free();
     return bRes;
 }
@@ -177,21 +173,14 @@ bool outputSources(const std::string& sPath)
             for (int i = 0; i < nodeSourceType.getSubNodeCount(); i++)
             {
                 std::cout << nodeSourceType.getSubNodeName(i) << std::endl;
-                /*registry::CNode nodeSources = nodeSourceType.getSubNode(i);
-                std::string sSourcesType;
-                nodeSources.getValue("TypeName", sSourcesType);
-                std::cout << sSourcesType << ":" << std::endl;
+                registry::CNode nodeSources = nodeSourceType.getSubNode(i);
                 for (int j = 0; j < nodeSources.getSubNodeCount(); j++)
                 {
                     registry::CNode nodeItem = nodeSources.getSubNode(j);
-                    std::string sItemChannelName;
-                    nodeItem.getValue("ChannelName", sItemChannelName);
-                    std::cout << nodeItem.getName() << ": ";
                     std::string sItemSourceName;
                     nodeItem.getValue("Name", sItemSourceName);
                     std::cout << sItemSourceName << std::endl;
-                }*/
-                //std::cout << std::endl << std::endl;
+                }
             }
             bRes = true;
         }
@@ -243,7 +232,7 @@ bool outputSourceName(const std::string& sPath, const std::string sChannel)
 
                        if (boost::algorithm::iequals(sChannel, sItemChannelName))
                        {
-                           std::cout << nodeSourceTypes.getSubNodeName(i);
+                           std::cout << nodeSourceTypes.getSubNodeName(i) << std::endl;
                            bRes = true;
                            break;
                        }
@@ -280,7 +269,7 @@ bool outputChannelInfo(const std::string& sPath, const std::string sChannel)
                    {
                        std::string sValueLeaf;
                        nodeValue.getValue(j, sValueLeaf);
-                       std::cout << nodeValue.getLeafName(j) << ":" << "\t" << sValueLeaf << "\t";
+                       std::cout << nodeValue.getLeafName(j) << ":" << "\t" << sValueLeaf << "\t" << std::endl;
                    }
                    bRes = true;
                }
@@ -338,7 +327,7 @@ bool outputSourcesInfo(const std::string& sPath, const std::string& sChannel)
                            {
                                 std::string sValueLeaf;
                                 nodeItem.getValue(g, sValueLeaf);
-                                std::cout << nodeItem.getLeafName(g) << ":" << "\t" << sValueLeaf << "\t";
+                                std::cout << nodeItem.getLeafName(g) << ":" << "\t" << sValueLeaf << "\t" << std::endl;
                            }
                        }
                    }
