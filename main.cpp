@@ -8,7 +8,7 @@
 #include <iostream>
 #include <reg_12.h>
 #include <boost/algorithm/string/predicate.hpp>
-
+#include <boost/locale.hpp>
 
 bool convertPath(std::string& sPath)
 {
@@ -265,9 +265,19 @@ bool outputChannelInfo(const std::string& sPath, const std::string sChannel)
                {
                    for (int j = 0; j < nodeValue.getLeafCount(); j++)
                    {
-                       std::string sValueLeaf;
-                       nodeValue.getValue(j, sValueLeaf);
-                       std::cout << nodeValue.getLeafName(j) << ":" << "\t" << sValueLeaf << "\t" << std::endl;
+                       if (nodeValue.getLeafName(j) != "DisplayName")
+                       {
+                           std::string sValueLeaf;
+                           nodeValue.getValue(j, sValueLeaf);
+                           std::cout << nodeValue.getLeafName(j) << ":" << "\t" << sValueLeaf << "\t" << std::endl;
+                       }
+                       else
+                       {
+                           std::string sDisplayName;
+                           nodeValue.getValue("DisplayName", sDisplayName);
+                           std::string sRes = boost::locale::conv::between(sDisplayName, "utf-8", "cp-1251");
+                           std::cout << nodeValue.getLeafName(j) << ":" << "\t" << sRes << "\t" << std::endl;
+                       }
                    }
                    bRes = true;
                }
