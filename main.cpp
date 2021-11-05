@@ -97,7 +97,6 @@ bool outputChannels(const std::string& sPath)
             std::cout << std::endl << std::endl;
             bRes = true;
         }
-
     }
     return bRes;
 }
@@ -172,7 +171,6 @@ bool outputSources(const std::string& sPath)
             registry::CNode nodeSourceType = nodeRoot.getSubNode("Sources");
             for (int i = 0; i < nodeSourceType.getSubNodeCount(); i++)
             {
-                std::cout << nodeSourceType.getSubNodeName(i) << std::endl;
                 registry::CNode nodeSources = nodeSourceType.getSubNode(i);
                 for (int j = 0; j < nodeSources.getSubNodeCount(); j++)
                 {
@@ -409,10 +407,7 @@ int main(int argc, char* argv[])
                     std::cout << "ERR> Can't set channel by name: " << sChannel << std::endl << std::endl << std::endl;
 
                 if(vm.count("info"))
-                { 
                    outputChannelInfo(sPath, sChannel);
-                   outputSourcesInfo(sPath, sChannel);
-                }
              }
 
              if(vm.count("source"))
@@ -423,6 +418,9 @@ int main(int argc, char* argv[])
                     outputSourceName(sPath, sChannel);
                 else
                     std::cout << "ERR> Can't set channel by name: " << sChannel << std::endl << std::endl << std::endl;
+
+                if(vm.count("info"))
+                   outputSourcesInfo(sPath, sChannel);
              }
 
              if (!vm.count("source"))
