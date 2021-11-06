@@ -8,7 +8,14 @@ CONFIG += \
           thread 
 
 unix {
-    LIBS +=-ldl -lboost_filesystem -lboost_system -lboost_program_options -lboost_locale -lreg_12
+    LIBS += \
+    -lreg_12 \
+    -ldl \
+    -l:libboost_locale-mt.a \
+    -l:libboost_filesystem-mt.a \
+    -l:libboost_system-mt.a \
+    -l:libboost_program_options.a \
+    -licuuc
     TARGET=$${TARGET}.bin
 }
 
