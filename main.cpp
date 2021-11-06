@@ -291,6 +291,40 @@ bool outputSourceInfo(const std::string& sPath, const std::string& sChannel)
     return bRes;
 }
 
+bool outputCountChannels(const std::string& sPath)
+{
+    bool bRes = false;
+    registry::CXMLProxy xmlFile;
+    if(xmlFile.load(sPath))
+    {
+       registry::CNode nodeRoot(&xmlFile, "");
+       if (nodeRoot.isSubNode("Channels"))
+       {
+           registry::CNode nodeCountChannels = nodeRoot.getSubNode("Channels");
+           std::cout << "Channels: " << nodeCountChannels.getSubNodeCount() << std::endl;
+           bRes = true;
+       }
+    }
+    return bRes;
+}
+
+bool outputCountSources(const std::string& sPath)
+{
+    bool bRes = false;
+    registry::CXMLProxy xmlFile;
+    if(xmlFile.load(sPath))
+    {
+       registry::CNode nodeRoot(&xmlFile, "");
+       if (nodeRoot.isSubNode("Sources"))
+       {
+           registry::CNode nodeCountSources = nodeRoot.getSubNode("Sources");
+           std::cout << "Sources: " << nodeCountSources.getSubNodeCount() << std::endl;
+           bRes = true;
+        }
+    }
+    return bRes;
+}
+
 bool parseArgs(int ac, char* av[], boost::program_options::variables_map& vm)
 {
     bool bRes = false;
@@ -298,18 +332,19 @@ bool parseArgs(int ac, char* av[], boost::program_options::variables_map& vm)
     {
         boost::program_options::options_description desc("Command Parser");
         desc.add_options()
-                ("help,h",      "show help")
-                ("net",         "show net")
+                ("help,h",            "show help")
+                ("net",               "show net")
                 ("display,d",
                  boost::program_options::value<std::string>(),
-                 " arg is c or s: c - display channels, s - display sources")
+                                      " arg is c or s: c - display channels, s - display sources")
                 ("channel,c",
                  boost::program_options::value<std::string>(),
-                 "show info for named channel")
+                                      "show info for named channel")
                 ("source,s",
                  boost::program_options::value<std::string>(),
                  "show info for named source")
-                ("info,i",      "show full information - all parameters")
+                ("info,i",            "show full information - all parameters")
+                ("stat",   "show statistics types/channels/sources")
                 ;
         boost::program_options::store(boost::program_options::parse_command_line(ac,av,desc), vm);
 
@@ -455,6 +490,12 @@ int main(int argc, char* argv[])
                     if (sArgDisplay == "c")
                         outputChannelsInfo(sPath, vm);
                 }
+             }
+
+             if(vm.count("stat"))
+             {
+                outputCountChannels(sPath);
+                outputCountSources(sPath);
              }
 
           }
