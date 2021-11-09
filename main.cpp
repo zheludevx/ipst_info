@@ -80,6 +80,43 @@ bool checkChannelName(const std::string& sPath, const std::string& sChannel)
     return bRes;
 }
 
+bool outputChannelName(const std::string& sPath, const std::string& sChannel)
+{
+    bool bRes = false;
+    if (checkChannelName(sPath, sChannel))
+    {
+        registry::CXMLProxy xmlFile;
+        if(xmlFile.load(sPath))
+        {
+            registry::CNode nodeRoot(&xmlFile, "");
+            if (nodeRoot.isSubNode("Sources"))
+            {
+                registry::CNode nodeSourceTypes = nodeRoot.getSubNode("Sources");
+                for (int i = 0; i < nodeSourceTypes.getSubNodeCount(); i++)
+                {
+                     registry::CNode nodeSources = nodeSourceTypes.getSubNode(i);
+                     for (int j = 0; j < nodeSources.getSubNodeCount(); j++)
+                     {
+                         registry::CNode nodeItem = nodeSources.getSubNode(j);
+                         std::string sItemChannelName;
+                         nodeItem.getValue("ChannelName", sItemChannelName);
+                         if (boost::algorithm::iequals(sItemChannelName, sChannel))
+                         {
+                             std::cout << "c:" << sItemChannelName << std::endl;
+                             bRes = true;
+                             break;
+                         }
+                     }
+
+                     if(bRes)
+                        break;
+                }
+            }
+        }
+    }
+    return bRes;
+}
+
 bool outputSourcesByChannel(const std::string& sPath, const std::string& sChannel)
 {
     bool bRes = false;
@@ -123,7 +160,7 @@ bool outputSourcesByChannel(const std::string& sPath, const std::string& sChanne
                         {
                             std::string sItemSourceName;
                             nodeItem.getValue("Name", sItemSourceName);
-                            std::cout << "c:" << sItemSourceName << std::endl;
+                            std::cout << "s:" << sItemSourceName << std::endl;
                         }
                     }
                     bRes = true;
@@ -176,7 +213,9 @@ bool outputSourceName(const std::string& sPath, const std::string sChannel)
                         nodeItem.getValue("ChannelName", sItemChannelName);
                         if (boost::algorithm::iequals(sChannel, sItemChannelName))
                         {
-                            std::cout << "s:" << nodeSourceTypes.getSubNodeName(i) << std::endl;
+                            std::string sValueName;
+                            nodeItem.getValue("Name", sValueName);
+                            std::cout << "s:" << sValueName << std::endl;
                             bRes = true;
                             break;
                         }
@@ -483,9 +522,16 @@ int main(int argc, char* argv[])
                 {
                     std::string sChannel = vm["channel"].as<std::string>();
                     if (checkChannelName(sPath, sChannel))
-                        outputSourcesByChannel(sPath, sChannel);
+                        outputChannelName(sPath, sChannel);
                     else
                         std::cout << "ERR> Can't set channel by name: " << sChannel << std::endl << std::endl << std::endl;
+
+                    if(vm.count("display"))
+                    {
+                       std::string sArgDisplay = vm["display"].as<std::string>();
+                       if(sArgDisplay == "s")
+                          outputSourcesByChannel(sPath, sChannel);
+                    }
 
                     if(vm.count("info"))
                         outputChannelInfo(sPath, sChannel);
@@ -500,7 +546,7 @@ int main(int argc, char* argv[])
                         std::cout << "ERR> Can't set channel by name: " << sChannel << std::endl << std::endl << std::endl;
 
                     if(vm.count("info"))
-                        outputSourceInfo(sPath, sChannel);
+                       outputSourceInfo(sPath, sChannel);
                 }
 
                 if (!vm.count("source"))
@@ -508,8 +554,9 @@ int main(int argc, char* argv[])
                     if (vm.count("display"))
                     {
                         std::string sArgDisplay = vm["display"].as<std::string>();
-                        if (sArgDisplay == "s")
-                            outputSourcesInfo(sPath, vm);
+                        if (sArgDisplay == "s")   
+                            if (!vm.count("channel"))
+                                outputSourcesInfo(sPath, vm);
                         if (sArgDisplay == "c")
                             outputChannelsInfo(sPath, vm);
                     }
