@@ -9,6 +9,7 @@
 #include <reg_12.h>
 #include <boost/algorithm/string/predicate.hpp>
 #include <boost/locale.hpp>
+#include <map>
 
 bool convertPath(std::string& sPath)
 {
@@ -380,6 +381,157 @@ bool outputCountTypes(const std::string& sPath)
     return bRes;
 }
 
+bool checkRepeatingPortNum(const std::string& sPath)
+{
+    bool bRes = false;
+    registry::CXMLProxy xmlFile;
+    if(xmlFile.load(sPath))
+    {
+        registry::CNode nodeRoot(&xmlFile, "");
+        if (nodeRoot.isSubNode("Channels"))
+        {
+            registry::CNode nodeCountChannels = nodeRoot.getSubNode("Channels");
+            int size = nodeCountChannels.getSubNodeCount();
+            int* iSockportValue = new int [size];
+            for (int i = 0; i < nodeCountChannels.getSubNodeCount(); i++)
+            {
+                 registry::CNode nodeItem = nodeCountChannels.getSubNode(i);             
+                 nodeItem.getValue("SockPortUdp_h", iSockportValue[i]);
+            }
+
+            std::map <unsigned, std::string> mSockPortValue;
+            std::map <unsigned, std::string> mRepeatSockPortValue;
+            for (int i = 0; i < nodeCountChannels.getSubNodeCount(); i++)
+            {
+                for (int j = 0; j < nodeCountChannels.getSubNodeCount(); j++)
+                {
+                    if ((i != j) && (iSockportValue[i] == iSockportValue[j]))
+                    {
+                        mSockPortValue.insert(std::make_pair(iSockportValue[i], nodeCountChannels.getSubNodeName(i)));
+                        mRepeatSockPortValue.insert(std::make_pair(iSockportValue[j], nodeCountChannels.getSubNodeName(j)));
+                    }
+                }
+            }
+
+            if (mSockPortValue.empty())
+                bRes = true;
+            else
+            {
+                std::cout << "Channels:" << std::endl;
+                std::map <unsigned, std::string> :: iterator it = mSockPortValue.begin();
+                std::map <unsigned, std::string> :: iterator itForRepeat = mRepeatSockPortValue.begin();
+                for (int i = 0; it != mSockPortValue.end();i++)
+                {
+                    for (int j = 0; itForRepeat != mRepeatSockPortValue.end(); itForRepeat++, j++)
+                    {
+                        if (it->first == itForRepeat->first)
+                        {
+                            std::cout << it->first << "   " << it->second  << ":" << std::endl;
+                            std::cout << itForRepeat->first << "   " << itForRepeat->second << std::endl;
+                        }
+                        it++;
+                    }
+                }
+            }
+
+            delete []iSockportValue;
+        }
+    }
+    return bRes;
+}
+
+bool checkRepeatingSourceId(const std::string& sPath)
+{
+    bool bRes = false;
+    registry::CXMLProxy xmlFile;
+    if(xmlFile.load(sPath))
+    {
+        registry::CNode nodeRoot(&xmlFile, "");  
+        int iCountChannels = 0;
+        if (nodeRoot.isSubNode("Channels"))
+        {
+            registry::CNode nodeCount = nodeRoot.getSubNode("Channels");
+            iCountChannels = nodeCount.getSubNodeCount();
+        }
+
+        std::string* sTypeName = new std::string [iCountChannels];
+        if (nodeRoot.isSubNode("Channels"))
+        {
+            registry::CNode nodeCount = nodeRoot.getSubNode("Channels");
+            for (int i = 0; i < nodeCount.getSubNodeCount(); i++)
+            {
+                registry::CNode nodeValue = nodeCount.getSubNode(i);
+                nodeValue.getValue("TypeName", sTypeName[i]);
+            }
+        }
+
+        if (nodeRoot.isSubNode("Sources"))
+        {
+            registry::CNode nodeSourceTypes = nodeRoot.getSubNode("Sources");
+            std::map <unsigned, std::string> mIdValue;
+            std::map <unsigned, std::string> mRepeatIdValue;
+            for (int i = 0; i < nodeSourceTypes.getSubNodeCount(); i++)
+            {
+                registry::CNode nodeSources = nodeSourceTypes.getSubNode(i);
+                std::string sSourcesType;
+                nodeSources.getValue("TypeName", sSourcesType);  
+                for (int j = 0; j < iCountChannels; j++)
+                {
+                    if (sSourcesType == sTypeName[j])
+                    {
+                        int iSourceCount = nodeSources.getSubNodeCount();
+                        int* iItemSourceId = new int [iSourceCount];
+                        for (int g = 0; g < nodeSources.getSubNodeCount(); g++)
+                        {
+                            registry::CNode nodeItem = nodeSources.getSubNode(g);
+                            nodeItem.getValue("ID", iItemSourceId[g]);
+                        }
+
+                        for (int g = 0; g < nodeSources.getSubNodeCount(); g++)
+                        {    for (int f = 0; f < nodeSources.getSubNodeCount(); f++)
+                             {
+                                if ((g != f) && (iItemSourceId[g] == iItemSourceId[f]))
+                                {
+                                     mIdValue.insert(std::make_pair(iItemSourceId[g], nodeSources.getSubNodeName(j)));
+                                     mRepeatIdValue.insert(std::make_pair(iItemSourceId[f], nodeSources.getSubNodeName(j)));
+                                }
+                             }
+                        }
+
+                        delete []iItemSourceId;
+                    }  
+                }
+            }
+
+            if (mIdValue.empty())
+                bRes = true;
+            else
+            {
+                std::cout << "Sources:" << std::endl;
+                std::map <unsigned, std::string> :: iterator it = mIdValue.begin();
+                std::map <unsigned, std::string> :: iterator itForRepeat = mRepeatIdValue.begin();
+                for (int i = 0; it != mIdValue.end(); i++)
+                {
+                    std::cout << it->first << "   " << it->second  << ":" << std::endl;
+                    std::cout << itForRepeat->first << "   " << itForRepeat->second << std::endl;
+                    for (int j = 0; itForRepeat != mRepeatIdValue.end(); itForRepeat++, j++)
+                    {
+                        if (it->first == itForRepeat->first)
+                        {
+                            std::cout << it->first << "   " << it->second  << ":" << std::endl;
+                            std::cout << itForRepeat->first << "   " << itForRepeat->second << std::endl;
+                        }
+                        it++;
+                    }
+                }
+            }
+
+            delete []sTypeName;
+        }
+    }
+    return bRes;
+}
+
 bool parseArgs(int ac, char* av[], boost::program_options::variables_map& vm)
 {
     bool bRes = false;
@@ -400,6 +552,7 @@ bool parseArgs(int ac, char* av[], boost::program_options::variables_map& vm)
                  "show info for named source")
                 ("info,i",            "show full information - all parameters")
                 ("stat",   "show statistics types, channels, sources")
+                ("check",  "show ...")
                 ;
         boost::program_options::store(boost::program_options::parse_command_line(ac,av,desc), vm);
 
@@ -559,6 +712,14 @@ int main(int argc, char* argv[])
                     outputCountTypes(sPath);
                     outputCountChannels(sPath);
                     outputCountSources(sPath);
+                }
+
+                if(vm.count("check"))
+                {
+                    if (checkRepeatingPortNum(sPath) && checkRepeatingSourceId(sPath))
+                        std::cout << "Check: success" << std::endl;
+                    else
+                        std::cout << "Check: failed" << std::endl << std::endl;
                 }
 
             }
