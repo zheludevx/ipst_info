@@ -417,13 +417,16 @@ bool checkRepeatingPortNum(const std::string& sPath)
 
 
             if (mSockPortValue.empty())
+            {
                 bRes = true;
+                std::cout << "Duplicate channel SockPortUdp_h: no errors." << std::endl;
+            }
             else
             {
                 std::map <unsigned, std::string> :: iterator it = mSockPortValue.begin();
                 std::map <unsigned, std::string> mRepeatSockPortValue;
-                std::cout << "Duplicate SockPort IDs:" << std::endl;
-                for (int i = 0; it != mSockPortValue.end();i++)
+                std::cout << "Duplicate channel SockPortUdp_h:" << std::endl;
+                for (int i = 0; it != mSockPortValue.end();it++, i++)
                 {
                     for (int j = 0; j < nodeCountChannels.getSubNodeCount(); j++)
                     {
@@ -439,7 +442,6 @@ bool checkRepeatingPortNum(const std::string& sPath)
                         }
 
                     }
-                    it++;
                 }
             }
 
@@ -449,14 +451,14 @@ bool checkRepeatingPortNum(const std::string& sPath)
     return bRes;
 }
 
-/*bool checkRepeatingSourceId(const std::string& sPath)
+bool checkRepeatingSourceId(const std::string& sPath)
 {
     bool bRes = false;
     registry::CXMLProxy xmlFile;
     if(xmlFile.load(sPath))
     {
-        registry::CNode nodeRoot(&xmlFile, "");  
-        int iCountChannels = 0;
+        registry::CNode nodeRoot(&xmlFile, "");
+        unsigned int iCountChannels = 0;
         if (nodeRoot.isSubNode("Channels"))
         {
             registry::CNode nodeCount = nodeRoot.getSubNode("Channels");
@@ -470,7 +472,8 @@ bool checkRepeatingPortNum(const std::string& sPath)
             for (int i = 0; i < nodeCount.getSubNodeCount(); i++)
             {
                 registry::CNode nodeValue = nodeCount.getSubNode(i);
-                nodeValue.getValue("TypeName", sTypeName[i]);
+                std::string& sTypeValue = sTypeName[i];
+                nodeValue.getValue("TypeName",  sTypeValue);
             }
         }
 
@@ -478,18 +481,19 @@ bool checkRepeatingPortNum(const std::string& sPath)
         {
             registry::CNode nodeSourceTypes = nodeRoot.getSubNode("Sources");
             std::map <unsigned, std::string> mIdValue;
-            std::map <unsigned, std::string> mRepeatIdValue;
+            std::map <unsigned, std::string> vChannelName;
             for (int i = 0; i < nodeSourceTypes.getSubNodeCount(); i++)
             {
                 registry::CNode nodeSources = nodeSourceTypes.getSubNode(i);
                 std::string sSourcesType;
-                nodeSources.getValue("TypeName", sSourcesType);  
-                for (int j = 0; j < iCountChannels; j++)
+                nodeSources.getValue("TypeName", sSourcesType);
+                for (unsigned int j = 0; j < iCountChannels; j++)
                 {
-                    if (sSourcesType == sTypeName[j])
+                    std::string& sTypeValue = sTypeName[j];
+                    if (sSourcesType == sTypeValue)
                     {
-                        int iSourceCount = nodeSources.getSubNodeCount();
-                        int* iItemSourceId = new int [iSourceCount];
+                        unsigned int iSourceCount = nodeSources.getSubNodeCount();
+                        unsigned int* iItemSourceId = new unsigned int [iSourceCount];
                         for (int g = 0; g < nodeSources.getSubNodeCount(); g++)
                         {
                             registry::CNode nodeItem = nodeSources.getSubNode(g);
@@ -497,49 +501,82 @@ bool checkRepeatingPortNum(const std::string& sPath)
                         }
 
                         for (int g = 0; g < nodeSources.getSubNodeCount(); g++)
-                        {    for (int f = 0; f < nodeSources.getSubNodeCount(); f++)
-                             {
-                                if ((g != f) && (iItemSourceId[g] == iItemSourceId[f]))
+                        {
+                            for (int f = 0; f < nodeSources.getSubNodeCount(); f++)
+                            {
+                                unsigned int& iValueG = iItemSourceId[g];
+                                unsigned int& iValueF = iItemSourceId[f];
+                                if ((g != f) && (iValueG == iValueF))
                                 {
-                                     mIdValue.insert(std::make_pair(iItemSourceId[g], nodeSources.getSubNodeName(j)));
-                                     mRepeatIdValue.insert(std::make_pair(iItemSourceId[f], nodeSources.getSubNodeName(j)));
+                                    registry::CNode nodeItem = nodeSources.getSubNode(f);
+                                    mIdValue.insert(std::make_pair(iValueG, nodeSources.getSubNodeName(g)));
+                                    std::string sChannelName;
+                                    nodeItem.getValue("ChannelName", sChannelName);
+                                    vChannelName.insert(std::make_pair(iValueG, sChannelName));
                                 }
-                             }
+                            }          
                         }
 
                         delete []iItemSourceId;
-                    }  
-                }
-            }
-
-            if (mIdValue.empty())
-                bRes = true;
-            else
-            {
-                std::cout << "Sources:" << std::endl;
-                std::map <unsigned, std::string> :: iterator it = mIdValue.begin();
-                std::map <unsigned, std::string> :: iterator itForRepeat = mRepeatIdValue.begin();
-                for (int i = 0; it != mIdValue.end(); i++)
-                {
-                    std::cout << it->first << "   " << it->second  << ":" << std::endl;
-                    std::cout << itForRepeat->first << "   " << itForRepeat->second << std::endl;
-                    for (int j = 0; itForRepeat != mRepeatIdValue.end(); itForRepeat++, j++)
-                    {
-                        if (it->first == itForRepeat->first)
-                        {
-                            std::cout << it->first << "   " << it->second  << ":" << std::endl;
-                            std::cout << itForRepeat->first << "   " << itForRepeat->second << std::endl;
-                        }
-                        it++;
                     }
                 }
             }
 
-            delete []sTypeName;
+            if (mIdValue.empty())
+            {
+                bRes = true;
+                std::cout << "Duplicate source IDs: no errors." << std::endl;
+            }
+            else
+            {
+                std::vector<unsigned int> vAllIdValue;
+                std::vector<std::string> vAllIdName;
+                std::vector<std::string> vAllIdChannelName;
+                for (int i = 0; i < nodeSourceTypes.getSubNodeCount(); i++)
+                {
+                    registry::CNode nodeSources = nodeSourceTypes.getSubNode(i);
+                    for (int j = 0; j < nodeSources.getSubNodeCount(); j++)
+                    {
+                        registry::CNode nodeItem = nodeSources.getSubNode(j);
+                        unsigned int iValueId = 0;
+                        nodeItem.getValue("ID", iValueId);
+                        vAllIdValue.push_back(iValueId);
+                        std::string iValueName = nodeSources.getSubNodeName(j);
+                        vAllIdName.push_back(iValueName);
+                        std::string iValueChannelName;
+                        nodeItem.getValue("ChannelName", iValueChannelName);
+                        vAllIdChannelName.push_back(iValueChannelName);
+                    }
+                }
+
+                std::cout << "Duplicate source IDs:" << std::endl;
+                std::map <unsigned, std::string> :: iterator it = mIdValue.begin();
+                std::map <unsigned, std::string> mRepeatIdValue;
+                for (int i = 0; it != mIdValue.end();it++, i++)
+                {
+                    for (unsigned int j = 0; j < vAllIdValue.size(); j++)
+                    {
+                        unsigned int& iValueId = vAllIdValue[j];
+                        std::string& iValueName = vAllIdName[j];
+                        std::map <unsigned, std::string> :: iterator itT = vChannelName.begin();
+                        for (int f = 0; itT != vChannelName.end();itT++, f++)
+                        {
+                            if ((it->first == iValueId) && (it->second != iValueName) && (itT->second == vAllIdChannelName[j]) && (it->first == itT->first))
+                            {
+                                mRepeatIdValue.insert(std::make_pair(vAllIdValue[j], vAllIdName[j]));
+                                std::map <unsigned, std::string> :: iterator itForRepeat = mRepeatIdValue.begin();
+                                if(it->first == itForRepeat->first)
+                                    std::cout << it->first << ": " << it->second << ", " << itForRepeat->second << std::endl;
+                                mRepeatIdValue.erase(itForRepeat);
+                            }
+                        }
+                    }
+                }
+            }
         }
     }
     return bRes;
-}*/
+}
 
 bool parseArgs(int ac, char* av[], boost::program_options::variables_map& vm)
 {
@@ -726,6 +763,7 @@ int main(int argc, char* argv[])
                 if(vm.count("check"))
                 {
                     checkRepeatingPortNum(sPath);
+                    checkRepeatingSourceId(sPath);
                     /*if (checkRepeatingPortNum(sPath) && checkRepeatingSourceId(sPath))
                         std::cout << "Check: success" << std::endl;
                     else
