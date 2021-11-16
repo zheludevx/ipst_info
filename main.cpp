@@ -39,7 +39,10 @@ bool outputNet(const std::string& sPath)
                 registry::CNode nodeItemInterfaces = nodeConfigGroups.getSubNode(i);
                 nodeItemInterfaces.getValue("SendInterfaces", vInterfaces);
                 for (unsigned int j = 0; j < vInterfaces.size(); j++)
-                    std::cout << "SendInterfaces: " << vInterfaces[j] << " ";
+                {
+                    const std::string& sInterfacesValue = vInterfaces[j];
+                    std::cout << "SendInterfaces: " << sInterfacesValue << " ";
+                }
             }
         }
         std::cout << std::endl;
@@ -391,46 +394,52 @@ bool checkRepeatingPortNum(const std::string& sPath)
         if (nodeRoot.isSubNode("Channels"))
         {
             registry::CNode nodeCountChannels = nodeRoot.getSubNode("Channels");
-            int size = nodeCountChannels.getSubNodeCount();
-            int* iSockportValue = new int [size];
+            unsigned int size = nodeCountChannels.getSubNodeCount();
+            unsigned int* iSockportValue = new unsigned int [size];
             for (int i = 0; i < nodeCountChannels.getSubNodeCount(); i++)
             {
-                 registry::CNode nodeItem = nodeCountChannels.getSubNode(i);             
-                 nodeItem.getValue("SockPortUdp_h", iSockportValue[i]);
+                 registry::CNode nodeItem = nodeCountChannels.getSubNode(i);
+                 unsigned int& iValueI = iSockportValue[i];
+                 nodeItem.getValue("SockPortUdp_h", iValueI);
             }
 
             std::map <unsigned, std::string> mSockPortValue;
-            std::map <unsigned, std::string> mRepeatSockPortValue;
             for (int i = 0; i < nodeCountChannels.getSubNodeCount(); i++)
             {
                 for (int j = 0; j < nodeCountChannels.getSubNodeCount(); j++)
                 {
-                    if ((i != j) && (iSockportValue[i] == iSockportValue[j]))
-                    {
-                        mSockPortValue.insert(std::make_pair(iSockportValue[i], nodeCountChannels.getSubNodeName(i)));
-                        mRepeatSockPortValue.insert(std::make_pair(iSockportValue[j], nodeCountChannels.getSubNodeName(j)));
-                    }
+                    unsigned int& iValueJ = iSockportValue[j];
+                    unsigned int& iValueI = iSockportValue[i];
+                    if ((i != j) && (iValueI == iValueJ))
+                        mSockPortValue.insert(std::make_pair(iValueI, nodeCountChannels.getSubNodeName(i)));
                 }
             }
+
 
             if (mSockPortValue.empty())
                 bRes = true;
             else
             {
-                std::cout << "Channels:" << std::endl;
                 std::map <unsigned, std::string> :: iterator it = mSockPortValue.begin();
-                std::map <unsigned, std::string> :: iterator itForRepeat = mRepeatSockPortValue.begin();
+                std::map <unsigned, std::string> mRepeatSockPortValue;
+                std::cout << "Duplicate SockPort IDs:" << std::endl;
                 for (int i = 0; it != mSockPortValue.end();i++)
                 {
-                    for (int j = 0; itForRepeat != mRepeatSockPortValue.end(); itForRepeat++, j++)
+                    for (int j = 0; j < nodeCountChannels.getSubNodeCount(); j++)
                     {
-                        if (it->first == itForRepeat->first)
+                        unsigned int& iValueJ = iSockportValue[j];
+                        if ((it->first == iValueJ) && (it->second != nodeCountChannels.getSubNodeName(j)))
                         {
-                            std::cout << it->first << "   " << it->second  << ":" << std::endl;
-                            std::cout << itForRepeat->first << "   " << itForRepeat->second << std::endl;
+                            mRepeatSockPortValue.insert(std::make_pair(iSockportValue[j], nodeCountChannels.getSubNodeName(j)));
+                            std::map <unsigned, std::string> :: iterator itForRepeat = mRepeatSockPortValue.begin();
+                            if(it->first == itForRepeat->first)
+                                std::cout << it->first << ": " << it->second << ", " << itForRepeat->second << std::endl;
+                            mRepeatSockPortValue.erase(itForRepeat);
+
                         }
-                        it++;
+
                     }
+                    it++;
                 }
             }
 
@@ -440,7 +449,7 @@ bool checkRepeatingPortNum(const std::string& sPath)
     return bRes;
 }
 
-bool checkRepeatingSourceId(const std::string& sPath)
+/*bool checkRepeatingSourceId(const std::string& sPath)
 {
     bool bRes = false;
     registry::CXMLProxy xmlFile;
@@ -530,7 +539,7 @@ bool checkRepeatingSourceId(const std::string& sPath)
         }
     }
     return bRes;
-}
+}*/
 
 bool parseArgs(int ac, char* av[], boost::program_options::variables_map& vm)
 {
@@ -539,8 +548,8 @@ bool parseArgs(int ac, char* av[], boost::program_options::variables_map& vm)
     {
         boost::program_options::options_description desc("Command Parser");
         desc.add_options()
-                ("help,h",            "show help")
-                ("net,n",             "show net")
+                ("help,h",        "show help")
+                ("net,n",         "show net")
                 ("display,d",
                  boost::program_options::value<std::string>(),
                  " arg is c or s: c - display channels, s - display sources")
@@ -550,9 +559,9 @@ bool parseArgs(int ac, char* av[], boost::program_options::variables_map& vm)
                 ("source,s",
                  boost::program_options::value<std::string>(),
                  "show info for named source")
-                ("info,i",            "show full information - all parameters")
-                ("stat",   "show statistics types, channels, sources")
-                ("check",  "show ...")
+                ("info,i",        "show full information - all parameters")
+                ("stat",          "show statistics types, channels, sources")
+                ("check",         "checks the integrity of ip_st configurations - duplicate port numbers, source IDs, etc")
                 ;
         boost::program_options::store(boost::program_options::parse_command_line(ac,av,desc), vm);
 
@@ -716,10 +725,11 @@ int main(int argc, char* argv[])
 
                 if(vm.count("check"))
                 {
-                    if (checkRepeatingPortNum(sPath) && checkRepeatingSourceId(sPath))
+                    checkRepeatingPortNum(sPath);
+                    /*if (checkRepeatingPortNum(sPath) && checkRepeatingSourceId(sPath))
                         std::cout << "Check: success" << std::endl;
                     else
-                        std::cout << "Check: failed" << std::endl << std::endl;
+                        std::cout << "Check: failed" << std::endl << std::endl;*/
                 }
 
             }
