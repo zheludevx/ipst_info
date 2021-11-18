@@ -468,6 +468,90 @@ bool checkRepeatingSourceId(const std::string& sPath)
     return bRes;
 }
 
+bool checkRepeatingNameChannel(const std::string& sPath)
+{
+    bool bRes = false;
+    registry::CXMLProxy xmlFile;
+    if(xmlFile.load(sPath))
+    {
+        registry::CNode nodeRoot(&xmlFile, "");
+        if (nodeRoot.isSubNode("Channels"))
+        {
+            registry::CNode nodeCountChannels = nodeRoot.getSubNode("Channels");
+            int iCountRepeat = 0;
+            std::map <std::string, std::string> map;
+            std::cout << "Duplicate channels name:" << std::endl;
+            for (int i = 0; i < nodeCountChannels.getSubNodeCount(); i++)
+            {
+                 registry::CNode nodeItem = nodeCountChannels.getSubNode(i);
+                 std::string sChannelName;
+                 nodeItem.getValue("Name", sChannelName);
+                 std::string sItemName = nodeItem.getName();
+                 if(map.find(sChannelName) == map.end())
+                     map[sChannelName] = sItemName;
+                 else
+                 {
+                     std::cout << map[sChannelName] << ": " << sItemName << std::endl;
+                     iCountRepeat++;
+                 }
+            }
+
+            if (iCountRepeat == 0)
+            {
+                std::cout << "Duplicate channels name: no errors." << std::endl;
+                bRes = true;
+            }
+
+        }
+    }
+    return bRes;
+}
+
+bool checkRepeatingNameSource(const std::string& sPath)
+{
+    bool bRes = false;
+    registry::CXMLProxy xmlFile;
+    if(xmlFile.load(sPath))
+    {
+        registry::CNode nodeRoot(&xmlFile, "");
+        if (nodeRoot.isSubNode("Sources"))
+        {
+            std::cout << "Duplicate sources name:" << std::endl;
+            registry::CNode nodeSourcesTypes = nodeRoot.getSubNode("Sources");
+            int iCountRepeat = 0;
+            for (int i = 0; i <nodeSourcesTypes.getSubNodeCount(); i++)
+            {
+                 registry::CNode nodeSources = nodeSourcesTypes.getSubNode(i);
+                 std::map <std::string, std::string> map;
+                 for (int j = 0; j < nodeSources.getSubNodeCount(); j++)
+                 {
+                     registry::CNode nodeItem = nodeSources.getSubNode(j);
+                     std::string sSourceName;
+                     nodeItem.getValue("Name", sSourceName);
+                     std::string sItemName = nodeItem.getName();
+                     if(map.find(sSourceName) == map.end())
+                         map[sSourceName] = sItemName;
+                     else
+                     {
+                         std::cout << map[sSourceName] << ": " << sItemName << std::endl;
+                         iCountRepeat++;
+                     }
+                 }
+
+            }
+
+            if(iCountRepeat == 0)
+            {
+               std::cout << "Duplicate sources name: no errors." << std::endl;
+               bRes = true;
+            }
+        }
+
+    }
+
+    return bRes;
+}
+
 bool parseArgs(int ac, char* av[], boost::program_options::variables_map& vm)
 {
     bool bRes = false;
@@ -654,6 +738,8 @@ int main(int argc, char* argv[])
                 {
                     checkRepeatingPortNum(sPath);
                     checkRepeatingSourceId(sPath);
+                    checkRepeatingNameChannel(sPath);
+                    checkRepeatingNameSource(sPath);
                 }
 
             }
