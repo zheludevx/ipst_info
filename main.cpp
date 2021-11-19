@@ -11,53 +11,65 @@
 #include <boost/locale.hpp>
 #include <map>
 
-bool convertPath(std::string& sPath)
+bool outputNet(registry::CNode& nodeRoot)
 {
-    plug_key::CModeInfoPlug lib;
-    bool bRes = lib.Load();
-    lib.ExpandString(sPath);
-    lib.Free();
+    bool bRes = false;
+    std::string sValueSockAddr;
+    nodeRoot.getValue("SockAddr", sValueSockAddr);
+    std::cout << "SockAddr: " << sValueSockAddr << std::endl;
+    if (nodeRoot.isSubNode("ConfigGroups"))
+    {
+        registry::CNode nodeConfigGroups = nodeRoot.getSubNode("ConfigGroups");
+        std::vector<std::string> vInterfaces;
+        for (int i = 0; i < nodeConfigGroups.getSubNodeCount(); i++)
+        {
+            registry::CNode nodeItemInterfaces = nodeConfigGroups.getSubNode(i);
+            nodeItemInterfaces.getValue("SendInterfaces", vInterfaces);
+            for (unsigned int j = 0; j < vInterfaces.size(); j++)
+            {
+                const std::string& sInterfacesValue = vInterfaces[j];
+                std::cout << "SendInterfaces: " << sInterfacesValue << " ";
+            }
+        }
+    }
+    std::cout << std::endl;
+    bRes = true;
     return bRes;
 }
 
-bool outputNet(const std::string& sPath)
+bool checkChannelName(registry::CNode& nodeRoot, const std::string& sChannel)
 {
     bool bRes = false;
-    registry::CXMLProxy xmlFile;
-    if(xmlFile.load(sPath))
+    if (nodeRoot.isSubNode("Sources"))
     {
-        registry::CNode nodeRoot(&xmlFile, "");
-        std::string sValueSockAddr;
-        nodeRoot.getValue("SockAddr", sValueSockAddr);
-        std::cout << "SockAddr: " << sValueSockAddr << std::endl;
-        if (nodeRoot.isSubNode("ConfigGroups"))
+        registry::CNode nodeSourceTypes = nodeRoot.getSubNode("Sources");
+        for (int i = 0; i < nodeSourceTypes.getSubNodeCount(); i++)
         {
-            registry::CNode nodeConfigGroups = nodeRoot.getSubNode("ConfigGroups");
-            std::vector<std::string> vInterfaces;
-            for (int i = 0; i < nodeConfigGroups.getSubNodeCount(); i++)
+            registry::CNode nodeSources = nodeSourceTypes.getSubNode(i);
+            for (int j = 0; j < nodeSources.getSubNodeCount(); j++)
             {
-                registry::CNode nodeItemInterfaces = nodeConfigGroups.getSubNode(i);
-                nodeItemInterfaces.getValue("SendInterfaces", vInterfaces);
-                for (unsigned int j = 0; j < vInterfaces.size(); j++)
+                registry::CNode nodeItem = nodeSources.getSubNode(j);
+                std::string sItemChannelName;
+                nodeItem.getValue("ChannelName", sItemChannelName);
+                if (boost::algorithm::iequals(sItemChannelName, sChannel))
                 {
-                    const std::string& sInterfacesValue = vInterfaces[j];
-                    std::cout << "SendInterfaces: " << sInterfacesValue << " ";
+                    bRes = true;
+                    break;
                 }
             }
+
+            if(bRes)
+                break;
         }
-        std::cout << std::endl;
-        bRes = true;
     }
     return bRes;
 }
 
-bool checkChannelName(const std::string& sPath, const std::string& sChannel)
+bool outputChannelName(registry::CNode& nodeRoot, const std::string& sChannel)
 {
     bool bRes = false;
-    registry::CXMLProxy xmlFile;
-    if(xmlFile.load(sPath))
+    if (checkChannelName(nodeRoot, sChannel))
     {
-        registry::CNode nodeRoot(&xmlFile, "");
         if (nodeRoot.isSubNode("Sources"))
         {
             registry::CNode nodeSourceTypes = nodeRoot.getSubNode("Sources");
@@ -71,6 +83,7 @@ bool checkChannelName(const std::string& sPath, const std::string& sChannel)
                     nodeItem.getValue("ChannelName", sItemChannelName);
                     if (boost::algorithm::iequals(sItemChannelName, sChannel))
                     {
+                        std::cout << "c:" << sItemChannelName << std::endl;
                         bRes = true;
                         break;
                     }
@@ -84,217 +97,89 @@ bool checkChannelName(const std::string& sPath, const std::string& sChannel)
     return bRes;
 }
 
-bool outputChannelName(const std::string& sPath, const std::string& sChannel)
+bool outputSourcesByChannel(registry::CNode& nodeRoot, const std::string& sChannel)
 {
     bool bRes = false;
-    if (checkChannelName(sPath, sChannel))
+    std::string sTypeName;
+    if (nodeRoot.isSubNode("Channels"))
     {
-        registry::CXMLProxy xmlFile;
-        if(xmlFile.load(sPath))
+        registry::CNode nodeCount = nodeRoot.getSubNode("Channels");
+        for (int i = 0; i < nodeCount.getSubNodeCount(); i++)
         {
-            registry::CNode nodeRoot(&xmlFile, "");
-            if (nodeRoot.isSubNode("Sources"))
+            registry::CNode nodeValue = nodeCount.getSubNode(i);
+            std::string sNodeName;
+            nodeValue.getValue("Name", sNodeName);
+            if (boost::algorithm::iequals(sChannel, sNodeName))
             {
-                registry::CNode nodeSourceTypes = nodeRoot.getSubNode("Sources");
-                for (int i = 0; i < nodeSourceTypes.getSubNodeCount(); i++)
-                {
-                     registry::CNode nodeSources = nodeSourceTypes.getSubNode(i);
-                     for (int j = 0; j < nodeSources.getSubNodeCount(); j++)
-                     {
-                         registry::CNode nodeItem = nodeSources.getSubNode(j);
-                         std::string sItemChannelName;
-                         nodeItem.getValue("ChannelName", sItemChannelName);
-                         if (boost::algorithm::iequals(sItemChannelName, sChannel))
-                         {
-                             std::cout << "c:" << sItemChannelName << std::endl;
-                             bRes = true;
-                             break;
-                         }
-                     }
-
-                     if(bRes)
-                        break;
-                }
+                nodeValue.getValue("TypeName", sTypeName);
+                break;
             }
         }
     }
-    return bRes;
-}
 
-bool outputSourcesByChannel(const std::string& sPath, const std::string& sChannel)
-{
-    bool bRes = false;
-    registry::CXMLProxy xmlFile;
-    if(xmlFile.load(sPath))
+    if (nodeRoot.isSubNode("Sources"))
     {
-        registry::CNode nodeRoot(&xmlFile, "");
-        std::string sTypeName;
-        if (nodeRoot.isSubNode("Channels"))
+        registry::CNode nodeSourceTypes = nodeRoot.getSubNode("Sources");
+        for (int i = 0; i < nodeSourceTypes.getSubNodeCount(); i++)
         {
-            registry::CNode nodeCount = nodeRoot.getSubNode("Channels");
-            for (int i = 0; i < nodeCount.getSubNodeCount(); i++)
+            registry::CNode nodeSources = nodeSourceTypes.getSubNode(i);
+            std::string sSourcesType;
+            nodeSources.getValue("TypeName", sSourcesType);
+            if (sSourcesType == sTypeName)
             {
-                registry::CNode nodeValue = nodeCount.getSubNode(i);
-                std::string sNodeName;
-                nodeValue.getValue("Name", sNodeName);
-                if (boost::algorithm::iequals(sChannel, sNodeName))
-                {
-                    nodeValue.getValue("TypeName", sTypeName);
-                    break;
-                }
-            }
-        }
-
-        if (nodeRoot.isSubNode("Sources"))
-        {
-            registry::CNode nodeSourceTypes = nodeRoot.getSubNode("Sources");
-            for (int i = 0; i < nodeSourceTypes.getSubNodeCount(); i++)
-            {
-                registry::CNode nodeSources = nodeSourceTypes.getSubNode(i);
-                std::string sSourcesType;
-                nodeSources.getValue("TypeName", sSourcesType);
-                if (sSourcesType == sTypeName)
-                {
-                    for (int j = 0; j < nodeSources.getSubNodeCount(); j++)
-                    {
-                        registry::CNode nodeItem = nodeSources.getSubNode(j);
-                        std::string sItemChannelName;
-                        nodeItem.getValue("ChannelName", sItemChannelName);
-                        if (boost::algorithm::iequals(sChannel, sItemChannelName))
-                        {
-                            std::string sItemSourceName;
-                            nodeItem.getValue("Name", sItemSourceName);
-                            std::cout << "s:" << sItemSourceName << std::endl;
-                        }
-                    }
-                    bRes = true;
-                    break;
-                }
-            }
-        }
-    }
-    return bRes;
-}
-
-bool checkSourceName(const std::string& sPath, const std::string& sSource)
-{
-    bool bRes = false;
-    registry::CXMLProxy xmlFile;
-    if(xmlFile.load(sPath))
-    {
-        registry::CNode nodeRoot(&xmlFile, "");
-        if (nodeRoot.isSubNode("Sources"))
-        {
-            registry::CNode nodeSourceTypes = nodeRoot.getSubNode("Sources");
-            for (int i = 0; i < nodeSourceTypes.getSubNodeCount(); i++)
-            {
-                registry::CNode nodeSources = nodeSourceTypes.getSubNode(i);
                 for (int j = 0; j < nodeSources.getSubNodeCount(); j++)
                 {
                     registry::CNode nodeItem = nodeSources.getSubNode(j);
-                    std::string sItemSourceName;
-                    nodeItem.getValue("Name", sItemSourceName);
-                    if (boost::algorithm::iequals(sItemSourceName, sSource))
+                    std::string sItemChannelName;
+                    nodeItem.getValue("ChannelName", sItemChannelName);
+                    if (boost::algorithm::iequals(sChannel, sItemChannelName))
                     {
-                        bRes = true;
-                        break;
-                    }
-                }
-
-                if(bRes)
-                    break;
-            }
-        }
-    }
-    return bRes;
-}
-
-bool outputSourceName(const std::string& sPath, const std::string& sSource)
-{
-    bool bRes = false;
-    if (checkSourceName(sPath, sSource))
-    {
-        registry::CXMLProxy xmlFile;
-        if(xmlFile.load(sPath))
-        {
-            registry::CNode nodeRoot(&xmlFile, "");
-            if (nodeRoot.isSubNode("Sources"))
-            {
-                registry::CNode nodeSourceTypes = nodeRoot.getSubNode("Sources");
-                for (int i = 0; i < nodeSourceTypes.getSubNodeCount(); i++)
-                {
-                    registry::CNode nodeSources = nodeSourceTypes.getSubNode(i);
-                    for (int j = 0; j < nodeSources.getSubNodeCount(); j++)
-                    {
-                        registry::CNode nodeItem = nodeSources.getSubNode(j);
                         std::string sItemSourceName;
                         nodeItem.getValue("Name", sItemSourceName);
-                        if (boost::algorithm::iequals(sItemSourceName, sSource))
-                        {
-                            std::cout << "s:" << sItemSourceName << std::endl;
-                            bRes = true;
-                            break;
-                        }
+                        std::cout << "s:" << sItemSourceName << std::endl;
                     }
-
-                    if(bRes)
-                        break;
                 }
+                bRes = true;
+                break;
             }
         }
     }
     return bRes;
 }
 
-bool outputChannelInfo(const std::string& sPath, const std::string sChannel)
+bool checkSourceName(registry::CNode& nodeRoot, const std::string& sSource)
 {
     bool bRes = false;
-    registry::CXMLProxy xmlFile;
-    if(xmlFile.load(sPath))
+    if (nodeRoot.isSubNode("Sources"))
     {
-        registry::CNode nodeRoot(&xmlFile, "");
-        if (nodeRoot.isSubNode("Channels"))
+        registry::CNode nodeSourceTypes = nodeRoot.getSubNode("Sources");
+        for (int i = 0; i < nodeSourceTypes.getSubNodeCount(); i++)
         {
-            registry::CNode nodeCount = nodeRoot.getSubNode("Channels");
-            for (int i = 0; i < nodeCount.getSubNodeCount(); i++)
+            registry::CNode nodeSources = nodeSourceTypes.getSubNode(i);
+            for (int j = 0; j < nodeSources.getSubNodeCount(); j++)
             {
-                registry::CNode nodeValue = nodeCount.getSubNode(i);
-                std::string sItemChannelName;
-                nodeValue.getValue("Name", sItemChannelName);
-                if (boost::algorithm::iequals(sChannel, sItemChannelName))
+                registry::CNode nodeItem = nodeSources.getSubNode(j);
+                std::string sItemSourceName;
+                nodeItem.getValue("Name", sItemSourceName);
+                if (boost::algorithm::iequals(sItemSourceName, sSource))
                 {
-                    for (int j = 0; j < nodeValue.getLeafCount(); j++)
-                    {
-                        if (nodeValue.getLeafName(j) != "DisplayName")
-                        {
-                            std::string sValueLeaf;
-                            nodeValue.getValue(j, sValueLeaf);
-                            std::cout << "   " << nodeValue.getLeafName(j) << ":" << "\t" << sValueLeaf << std::endl;
-                        }
-                        else
-                        {
-                            std::string sDisplayName;
-                            nodeValue.getValue("DisplayName", sDisplayName);
-                            std::string sRes = boost::locale::conv::between(sDisplayName, "utf-8", "cp-1251");
-                            std::cout << "   " << nodeValue.getLeafName(j) << ":" << "\t" << sRes << std::endl;
-                        }
-                    }
                     bRes = true;
                     break;
                 }
             }
+
+            if(bRes)
+                break;
         }
     }
     return bRes;
 }
 
-bool outputSourceInfo(const std::string& sPath, const std::string& sSource)
+bool outputSourceName(registry::CNode& nodeRoot, const std::string& sSource)
 {
     bool bRes = false;
-    registry::CXMLProxy xmlFile;
-    if(xmlFile.load(sPath))
+    if (checkSourceName(nodeRoot, sSource))
     {
-        registry::CNode nodeRoot(&xmlFile, "");
         if (nodeRoot.isSubNode("Sources"))
         {
             registry::CNode nodeSourceTypes = nodeRoot.getSubNode("Sources");
@@ -308,247 +193,272 @@ bool outputSourceInfo(const std::string& sPath, const std::string& sSource)
                     nodeItem.getValue("Name", sItemSourceName);
                     if (boost::algorithm::iequals(sItemSourceName, sSource))
                     {
-                        for (int g = 0; g < nodeItem.getLeafCount(); g++)
-                        {
-                            std::string sValueLeaf;
-                            nodeItem.getValue(g, sValueLeaf);
-                            std::cout << "   " << nodeItem.getLeafName(g) << ":" << "\t" << sValueLeaf << std::endl;
-                        }
+                        std::cout << "s:" << sItemSourceName << std::endl;
                         bRes = true;
                         break;
                     }
                 }
 
                 if(bRes)
-                   break;
+                    break;
             }
         }
     }
     return bRes;
 }
 
-bool outputCountChannels(const std::string& sPath)
+bool outputChannelInfo(registry::CNode& nodeRoot, const std::string sChannel)
 {
     bool bRes = false;
-    registry::CXMLProxy xmlFile;
-    if(xmlFile.load(sPath))
+    if (nodeRoot.isSubNode("Channels"))
     {
-        registry::CNode nodeRoot(&xmlFile, "");
-        if (nodeRoot.isSubNode("Channels"))
+        registry::CNode nodeCount = nodeRoot.getSubNode("Channels");
+        for (int i = 0; i < nodeCount.getSubNodeCount(); i++)
         {
-            registry::CNode nodeCountChannels = nodeRoot.getSubNode("Channels");
-            std::cout << "Channels: " << nodeCountChannels.getSubNodeCount() << std::endl;
-            bRes = true;
-        }
-    }
-    return bRes;
-}
-
-bool outputCountSources(const std::string& sPath)
-{
-    bool bRes = false;
-    registry::CXMLProxy xmlFile;
-    if(xmlFile.load(sPath))
-    {
-        registry::CNode nodeRoot(&xmlFile, "");
-        if (nodeRoot.isSubNode("Sources"))
-        {
-            registry::CNode nodeSources = nodeRoot.getSubNode("Sources");
-            int iSourceCount = 0;
-            for (int i = 0; i <nodeSources.getSubNodeCount(); i++)
+            registry::CNode nodeValue = nodeCount.getSubNode(i);
+            std::string sItemChannelName;
+            nodeValue.getValue("Name", sItemChannelName);
+            if (boost::algorithm::iequals(sChannel, sItemChannelName))
             {
-                registry::CNode nodeCountSources = nodeSources.getSubNode(i);
-                iSourceCount += nodeCountSources.getSubNodeCount();
+                for (int j = 0; j < nodeValue.getLeafCount(); j++)
+                {
+                    if (nodeValue.getLeafName(j) != "DisplayName")
+                    {
+                        std::string sValueLeaf;
+                        nodeValue.getValue(j, sValueLeaf);
+                        std::cout << "   " << nodeValue.getLeafName(j) << ":" << "\t" << sValueLeaf << std::endl;
+                    }
+                    else
+                    {
+                        std::string sDisplayName;
+                        nodeValue.getValue("DisplayName", sDisplayName);
+                        std::string sRes = boost::locale::conv::between(sDisplayName, "utf-8", "cp-1251");
+                        std::cout << "   " << nodeValue.getLeafName(j) << ":" << "\t" << sRes << std::endl;
+                    }
+                }
+                bRes = true;
+                break;
             }
-            std::cout << "Sources: " << iSourceCount << std::endl;
+        }
+    }
+    return bRes;
+}
+
+bool outputSourceInfo(registry::CNode& nodeRoot, const std::string& sSource)
+{
+    bool bRes = false;
+    if (nodeRoot.isSubNode("Sources"))
+    {
+        registry::CNode nodeSourceTypes = nodeRoot.getSubNode("Sources");
+        for (int i = 0; i < nodeSourceTypes.getSubNodeCount(); i++)
+        {
+            registry::CNode nodeSources = nodeSourceTypes.getSubNode(i);
+            for (int j = 0; j < nodeSources.getSubNodeCount(); j++)
+            {
+                registry::CNode nodeItem = nodeSources.getSubNode(j);
+                std::string sItemSourceName;
+                nodeItem.getValue("Name", sItemSourceName);
+                if (boost::algorithm::iequals(sItemSourceName, sSource))
+                {
+                    for (int g = 0; g < nodeItem.getLeafCount(); g++)
+                    {
+                        std::string sValueLeaf;
+                        nodeItem.getValue(g, sValueLeaf);
+                        std::cout << "   " << nodeItem.getLeafName(g) << ":" << "\t" << sValueLeaf << std::endl;
+                    }
+                    bRes = true;
+                    break;
+                }
+            }
+
+            if(bRes)
+                break;
+        }
+    }
+    return bRes;
+}
+
+bool outputCountChannels(registry::CNode& nodeRoot)
+{
+    bool bRes = false;
+    if (nodeRoot.isSubNode("Channels"))
+    {
+        registry::CNode nodeCountChannels = nodeRoot.getSubNode("Channels");
+        std::cout << "Channels: " << nodeCountChannels.getSubNodeCount() << std::endl;
+        bRes = true;
+    }
+    return bRes;
+}
+
+bool outputCountSources(registry::CNode& nodeRoot)
+{
+    bool bRes = false;
+    if (nodeRoot.isSubNode("Sources"))
+    {
+        registry::CNode nodeSources = nodeRoot.getSubNode("Sources");
+        int iSourceCount = 0;
+        for (int i = 0; i <nodeSources.getSubNodeCount(); i++)
+        {
+            registry::CNode nodeCountSources = nodeSources.getSubNode(i);
+            iSourceCount += nodeCountSources.getSubNodeCount();
+        }
+        std::cout << "Sources: " << iSourceCount << std::endl;
+        bRes = true;
+    }
+    return bRes;
+}
+
+bool outputCountTypes(registry::CNode& nodeRoot)
+{
+    bool bRes = false;
+    if (nodeRoot.isSubNode("DataTypes"))
+    {
+        registry::CNode nodeCountTypes = nodeRoot.getSubNode("DataTypes");
+        std::cout << "Types: " << nodeCountTypes.getSubNodeCount() << std::endl;
+        bRes = true;
+    }
+    return bRes;
+}
+
+bool checkRepeatingPortNum(registry::CNode& nodeRoot)
+{
+    bool bRes = false;
+    if (nodeRoot.isSubNode("Channels"))
+    {
+        registry::CNode nodeCountChannels = nodeRoot.getSubNode("Channels");
+        int iCountRepeat = 0;
+        std::map <unsigned, std::string> map;
+        std::cout << "* Duplicate channel SockPortUdp_h: " << std::endl;
+        for (int i = 0; i < nodeCountChannels.getSubNodeCount(); i++)
+        {
+            registry::CNode nodeItem = nodeCountChannels.getSubNode(i);
+            unsigned uChannelPortlId = 0;
+            nodeItem.getValue("SockPortUdp_h", uChannelPortlId);
+            std::string sItemName = nodeItem.getName();
+            if(map.find(uChannelPortlId) == map.end())
+                map[uChannelPortlId] = sItemName;
+            else
+            {
+                std::cout << uChannelPortlId << ": " << map[uChannelPortlId] << ", " << sItemName << std::endl;
+                iCountRepeat++;
+            }
+        }
+
+        if (iCountRepeat == 0)
+        {
+            std::cout << "no errors." << std::endl;
             bRes = true;
         }
     }
     return bRes;
 }
 
-bool outputCountTypes(const std::string& sPath)
+bool checkRepeatingSourceId(registry::CNode& nodeRoot)
 {
     bool bRes = false;
-    registry::CXMLProxy xmlFile;
-    if(xmlFile.load(sPath))
+    if (nodeRoot.isSubNode("Sources"))
     {
-        registry::CNode nodeRoot(&xmlFile, "");
-        if (nodeRoot.isSubNode("DataTypes"))
+        std::cout << "* Duplicate source IDs: " << std::endl;
+        registry::CNode nodeSourcesTypes = nodeRoot.getSubNode("Sources");
+        int iCountRepeat = 0;
+        for (int i = 0; i <nodeSourcesTypes.getSubNodeCount(); i++)
         {
-            registry::CNode nodeCountTypes = nodeRoot.getSubNode("DataTypes");
-            std::cout << "Types: " << nodeCountTypes.getSubNodeCount() << std::endl;
-            bRes = true;
-        }
-    }
-    return bRes;
-}
-
-bool checkRepeatingPortNum(const std::string& sPath)
-{
-    bool bRes = false;
-    registry::CXMLProxy xmlFile;
-    if(xmlFile.load(sPath))
-    {
-        registry::CNode nodeRoot(&xmlFile, "");
-        if (nodeRoot.isSubNode("Channels"))
-        {
-            registry::CNode nodeCountChannels = nodeRoot.getSubNode("Channels");
-            int iCountRepeat = 0;
+            registry::CNode nodeSources = nodeSourcesTypes.getSubNode(i);
             std::map <unsigned, std::string> map;
-            std::cout << "Duplicate channel SockPortUdp_h:" << std::endl;
-            for (int i = 0; i < nodeCountChannels.getSubNodeCount(); i++)
+            for (int j = 0; j < nodeSources.getSubNodeCount(); j++)
             {
-                 registry::CNode nodeItem = nodeCountChannels.getSubNode(i);
-                 unsigned uChannelPortlId = 0;
-                 nodeItem.getValue("SockPortUdp_h", uChannelPortlId);
-                 std::string sItemName = nodeItem.getName();
-                 if(map.find(uChannelPortlId) == map.end())
-                     map[uChannelPortlId] = sItemName;
-                 else
-                 {
-                     std::cout << uChannelPortlId << ": " << map[uChannelPortlId] << ", " << sItemName << std::endl;
-                     iCountRepeat++;
-                 }
+                registry::CNode nodeItem = nodeSources.getSubNode(j);
+                unsigned uSourceId = 0;
+                nodeItem.getValue("ID", uSourceId);
+                std::string sItemName = nodeItem.getName();
+                if(map.find(uSourceId) == map.end())
+                    map[uSourceId] = sItemName;
+                else
+                {
+                    std::cout << uSourceId << ": " << map[uSourceId] << ", " << sItemName << std::endl;
+                    iCountRepeat++;
+                }
             }
 
-            if (iCountRepeat == 0)
-            {
-                std::cout << "Duplicate channel SockPortUdp_h: no errors." << std::endl;
-                bRes = true;
-            }
+        }
 
+        if(iCountRepeat == 0)
+        {
+            std::cout << "no errors." << std::endl;
+            bRes = true;
         }
     }
     return bRes;
 }
 
-bool checkRepeatingSourceId(const std::string& sPath)
+bool checkRepeatingNameChannel(registry::CNode& nodeRoot)
 {
     bool bRes = false;
-    registry::CXMLProxy xmlFile;
-    if(xmlFile.load(sPath))
+    if (nodeRoot.isSubNode("Channels"))
     {
-        registry::CNode nodeRoot(&xmlFile, "");    
-        if (nodeRoot.isSubNode("Sources"))
+        registry::CNode nodeCountChannels = nodeRoot.getSubNode("Channels");
+        int iCountRepeat = 0;
+        std::map <std::string, std::string> map;
+        std::cout << "* Duplicate channels name: " << std::endl;
+        for (int i = 0; i < nodeCountChannels.getSubNodeCount(); i++)
         {
-            std::cout << "Duplicate source IDs:" << std::endl;
-            registry::CNode nodeSourcesTypes = nodeRoot.getSubNode("Sources");
-            int iCountRepeat = 0;
-            for (int i = 0; i <nodeSourcesTypes.getSubNodeCount(); i++)
+            registry::CNode nodeItem = nodeCountChannels.getSubNode(i);
+            std::string sChannelName;
+            nodeItem.getValue("Name", sChannelName);
+            std::string sItemName = nodeItem.getName();
+            if(map.find(sChannelName) == map.end())
+                map[sChannelName] = sItemName;
+            else
             {
-                 registry::CNode nodeSources = nodeSourcesTypes.getSubNode(i);
-                 std::map <unsigned, std::string> map;
-                 for (int j = 0; j < nodeSources.getSubNodeCount(); j++)
-                 {
-                     registry::CNode nodeItem = nodeSources.getSubNode(j);
-                     unsigned uSourceId = 0;
-                     nodeItem.getValue("ID", uSourceId);
-                     std::string sItemName = nodeItem.getName();
-                     if(map.find(uSourceId) == map.end())
-                         map[uSourceId] = sItemName;
-                     else
-                     {
-                         std::cout << uSourceId << ": " << map[uSourceId] << ", " << sItemName << std::endl;
-                         iCountRepeat++;
-                     }
-                 }
-
-            }
-
-            if(iCountRepeat == 0)
-            {
-               std::cout << "Duplicate source IDs: no errors." << std::endl;
-               bRes = true;
+                std::cout << map[sChannelName] << ": " << sItemName << std::endl;
+                iCountRepeat++;
             }
         }
 
+        if (iCountRepeat == 0)
+        {
+            std::cout << "no errors." << std::endl;
+            bRes = true;
+        }
     }
-
     return bRes;
 }
 
-bool checkRepeatingNameChannel(const std::string& sPath)
+bool checkRepeatingNameSource(registry::CNode& nodeRoot)
 {
     bool bRes = false;
-    registry::CXMLProxy xmlFile;
-    if(xmlFile.load(sPath))
+    if (nodeRoot.isSubNode("Sources"))
     {
-        registry::CNode nodeRoot(&xmlFile, "");
-        if (nodeRoot.isSubNode("Channels"))
+        std::cout << "* Duplicate sources name: " << std::endl;
+        registry::CNode nodeSourcesTypes = nodeRoot.getSubNode("Sources");
+        int iCountRepeat = 0;
+        for (int i = 0; i <nodeSourcesTypes.getSubNodeCount(); i++)
         {
-            registry::CNode nodeCountChannels = nodeRoot.getSubNode("Channels");
-            int iCountRepeat = 0;
+            registry::CNode nodeSources = nodeSourcesTypes.getSubNode(i);
             std::map <std::string, std::string> map;
-            std::cout << "Duplicate channels name:" << std::endl;
-            for (int i = 0; i < nodeCountChannels.getSubNodeCount(); i++)
+            for (int j = 0; j < nodeSources.getSubNodeCount(); j++)
             {
-                 registry::CNode nodeItem = nodeCountChannels.getSubNode(i);
-                 std::string sChannelName;
-                 nodeItem.getValue("Name", sChannelName);
-                 std::string sItemName = nodeItem.getName();
-                 if(map.find(sChannelName) == map.end())
-                     map[sChannelName] = sItemName;
-                 else
-                 {
-                     std::cout << map[sChannelName] << ": " << sItemName << std::endl;
-                     iCountRepeat++;
-                 }
-            }
-
-            if (iCountRepeat == 0)
-            {
-                std::cout << "Duplicate channels name: no errors." << std::endl;
-                bRes = true;
+                registry::CNode nodeItem = nodeSources.getSubNode(j);
+                std::string sSourceName;
+                nodeItem.getValue("Name", sSourceName);
+                std::string sItemName = nodeItem.getName();
+                if(map.find(sSourceName) == map.end())
+                    map[sSourceName] = sItemName;
+                else
+                {
+                    std::cout << map[sSourceName] << ": " << sItemName << std::endl;
+                    iCountRepeat++;
+                }
             }
 
         }
-    }
-    return bRes;
-}
 
-bool checkRepeatingNameSource(const std::string& sPath)
-{
-    bool bRes = false;
-    registry::CXMLProxy xmlFile;
-    if(xmlFile.load(sPath))
-    {
-        registry::CNode nodeRoot(&xmlFile, "");
-        if (nodeRoot.isSubNode("Sources"))
+        if(iCountRepeat == 0)
         {
-            std::cout << "Duplicate sources name:" << std::endl;
-            registry::CNode nodeSourcesTypes = nodeRoot.getSubNode("Sources");
-            int iCountRepeat = 0;
-            for (int i = 0; i <nodeSourcesTypes.getSubNodeCount(); i++)
-            {
-                 registry::CNode nodeSources = nodeSourcesTypes.getSubNode(i);
-                 std::map <std::string, std::string> map;
-                 for (int j = 0; j < nodeSources.getSubNodeCount(); j++)
-                 {
-                     registry::CNode nodeItem = nodeSources.getSubNode(j);
-                     std::string sSourceName;
-                     nodeItem.getValue("Name", sSourceName);
-                     std::string sItemName = nodeItem.getName();
-                     if(map.find(sSourceName) == map.end())
-                         map[sSourceName] = sItemName;
-                     else
-                     {
-                         std::cout << map[sSourceName] << ": " << sItemName << std::endl;
-                         iCountRepeat++;
-                     }
-                 }
-
-            }
-
-            if(iCountRepeat == 0)
-            {
-               std::cout << "Duplicate sources name: no errors." << std::endl;
-               bRes = true;
-            }
+            std::cout << "no errors." << std::endl;
+            bRes = true;
         }
-
     }
-
     return bRes;
 }
 
@@ -595,76 +505,66 @@ bool parseArgs(int ac, char* av[], boost::program_options::variables_map& vm)
     return bRes;
 }
 
-bool outputChannelsInfo(const std::string& sPath, boost::program_options::variables_map& vm)
+bool outputChannelsInfo(registry::CNode& nodeRoot, boost::program_options::variables_map& vm)
 {
     bool bRes = false;
-    registry::CXMLProxy xmlFile;
-    if(xmlFile.load(sPath))
+    if (nodeRoot.isSubNode("Channels"))
     {
-        registry::CNode nodeRoot(&xmlFile, "");
-        if (nodeRoot.isSubNode("Channels"))
+        registry::CNode nodeCount = nodeRoot.getSubNode("Channels");
+        for (int i = 0; i < nodeCount.getSubNodeCount(); i++)
         {
-            registry::CNode nodeCount = nodeRoot.getSubNode("Channels");
-            for (int i = 0; i < nodeCount.getSubNodeCount(); i++)
+            std::cout << "c:" << nodeCount.getSubNodeName(i) << std::endl;
+            if(vm.count("info"))
             {
-                std::cout << "c:" << nodeCount.getSubNodeName(i) << std::endl;
-                if(vm.count("info"))
+                registry::CNode nodeValue = nodeCount.getSubNode(i);
+                for (int j = 0; j < nodeValue.getLeafCount(); j++)
                 {
-                    registry::CNode nodeValue = nodeCount.getSubNode(i);
-                    for (int j = 0; j < nodeValue.getLeafCount(); j++)
+                    if (nodeValue.getLeafName(j) != "DisplayName")
                     {
-                        if (nodeValue.getLeafName(j) != "DisplayName")
-                        {
-                            std::string sValueLeaf;
-                            nodeValue.getValue(j, sValueLeaf);
-                            std::cout << "   " << nodeValue.getLeafName(j) << ":" << "\t" << sValueLeaf << std::endl;
-                        }
-                        else
-                        {
-                            std::string sDisplayName;
-                            nodeValue.getValue("DisplayName", sDisplayName);
-                            std::string sRes = boost::locale::conv::between(sDisplayName, "utf-8", "cp-1251");
-                            std::cout << "   " << nodeValue.getLeafName(j) << ":" << "\t" << sRes << std::endl;
-                        }
+                        std::string sValueLeaf;
+                        nodeValue.getValue(j, sValueLeaf);
+                        std::cout << "   " << nodeValue.getLeafName(j) << ":" << "\t" << sValueLeaf << std::endl;
+                    }
+                    else
+                    {
+                        std::string sDisplayName;
+                        nodeValue.getValue("DisplayName", sDisplayName);
+                        std::string sRes = boost::locale::conv::between(sDisplayName, "utf-8", "cp-1251");
+                        std::cout << "   " << nodeValue.getLeafName(j) << ":" << "\t" << sRes << std::endl;
                     }
                 }
             }
-            bRes = true;
         }
+        bRes = true;
     }
     return bRes;
 }
 
-bool outputSourcesInfo(const std::string& sPath, boost::program_options::variables_map& vm)
+bool outputSourcesInfo(registry::CNode& nodeRoot, boost::program_options::variables_map& vm)
 {
     bool bRes = false;
-    registry::CXMLProxy xmlFile;
-    if(xmlFile.load(sPath))
+    if (nodeRoot.isSubNode("Sources"))
     {
-        registry::CNode nodeRoot(&xmlFile, "");
-        if (nodeRoot.isSubNode("Sources"))
+        registry::CNode nodeSourceType = nodeRoot.getSubNode("Sources");
+        for (int i = 0; i < nodeSourceType.getSubNodeCount(); i++)
         {
-            registry::CNode nodeSourceType = nodeRoot.getSubNode("Sources");
-            for (int i = 0; i < nodeSourceType.getSubNodeCount(); i++)
+            registry::CNode nodeSources = nodeSourceType.getSubNode(i);
+            for (int j = 0; j < nodeSources.getSubNodeCount(); j++)
             {
-                registry::CNode nodeSources = nodeSourceType.getSubNode(i);
-                for (int j = 0; j < nodeSources.getSubNodeCount(); j++)
+                std::cout << "s:"<<nodeSources.getSubNodeName(j) << std::endl;
+                if (vm.count("info"))
                 {
-                    std::cout << "s:"<<nodeSources.getSubNodeName(j) << std::endl;
-                    if (vm.count("info"))
+                    registry::CNode nodeItem = nodeSources.getSubNode(j);
+                    for (int g = 0; g < nodeItem.getLeafCount(); g++)
                     {
-                        registry::CNode nodeItem = nodeSources.getSubNode(j);
-                        for (int g = 0; g < nodeItem.getLeafCount(); g++)
-                        {
-                            std::string sValueLeaf;
-                            nodeItem.getValue(g, sValueLeaf);
-                            std::cout << "   " << nodeItem.getLeafName(g) << ":" << "\t" << sValueLeaf << std::endl;
-                        }
+                        std::string sValueLeaf;
+                        nodeItem.getValue(g, sValueLeaf);
+                        std::cout << "   " << nodeItem.getLeafName(g) << ":" << "\t" << sValueLeaf << std::endl;
                     }
                 }
             }
-            bRes = true;
         }
+        bRes = true;
     }
     return bRes;
 }
@@ -672,23 +572,26 @@ bool outputSourcesInfo(const std::string& sPath, boost::program_options::variabl
 int main(int argc, char* argv[])
 {
     std::string sPath = "$(NITAETC)/_System/ip_st/ip_st.xml";
+    plug_key::CModeInfoPlug lib;
+    lib.ExpandString(sPath);
+    registry::CXMLProxy xmlFile;
 
     try
     {
-        boost::program_options::variables_map vm;
-
-        if(parseArgs(argc, argv, vm))
+        if(xmlFile.load(sPath))
         {
-            if(convertPath(sPath))
+            registry::CNode nodeRoot(&xmlFile, "");
+            boost::program_options::variables_map vm;
+            if(parseArgs(argc, argv, vm))
             {
                 if(vm.count("net"))
-                    outputNet(sPath);
+                    outputNet(nodeRoot);
 
                 if(vm.count("channel"))
                 {
                     std::string sChannel = vm["channel"].as<std::string>();
-                    if (checkChannelName(sPath, sChannel))
-                        outputChannelName(sPath, sChannel);
+                    if (checkChannelName(nodeRoot, sChannel))
+                        outputChannelName(nodeRoot, sChannel);
                     else
                         std::cout << "ERR> Can't set channel by name: " << sChannel << std::endl << std::endl << std::endl;
 
@@ -696,22 +599,22 @@ int main(int argc, char* argv[])
                     {
                        std::string sArgDisplay = vm["display"].as<std::string>();
                        if(sArgDisplay == "s")
-                          outputSourcesByChannel(sPath, sChannel);
+                          outputSourcesByChannel(nodeRoot, sChannel);
                     }
 
                     if(vm.count("info"))
-                        outputChannelInfo(sPath, sChannel);
+                        outputChannelInfo(nodeRoot, sChannel);
                 }
 
                 if(vm.count("source"))
                 {
                     std::string sSource = vm["source"].as<std::string>();
-                    if (checkSourceName(sPath, sSource))
-                        outputSourceName(sPath, sSource);
+                    if (checkSourceName(nodeRoot, sSource))
+                        outputSourceName(nodeRoot, sSource);
 
                     if(vm.count("info"))
-                       if(checkSourceName(sPath, sSource))
-                          outputSourceInfo(sPath, sSource);
+                       if(checkSourceName(nodeRoot, sSource))
+                          outputSourceInfo(nodeRoot, sSource);
                 }
 
                 if (!vm.count("source"))
@@ -721,32 +624,32 @@ int main(int argc, char* argv[])
                         std::string sArgDisplay = vm["display"].as<std::string>();
                         if (sArgDisplay == "s")   
                             if (!vm.count("channel"))
-                                outputSourcesInfo(sPath, vm);
+                                outputSourcesInfo(nodeRoot, vm);
                         if (sArgDisplay == "c")
-                            outputChannelsInfo(sPath, vm);
+                            outputChannelsInfo(nodeRoot, vm);
                     }
                 }
 
                 if(vm.count("stat"))
                 {
-                    outputCountTypes(sPath);
-                    outputCountChannels(sPath);
-                    outputCountSources(sPath);
+                    outputCountTypes(nodeRoot);
+                    outputCountChannels(nodeRoot);
+                    outputCountSources(nodeRoot);
                 }
 
                 if(vm.count("check"))
                 {
-                    checkRepeatingPortNum(sPath);
-                    checkRepeatingSourceId(sPath);
-                    checkRepeatingNameChannel(sPath);
-                    checkRepeatingNameSource(sPath);
+                    checkRepeatingPortNum(nodeRoot);
+                    checkRepeatingSourceId(nodeRoot);
+                    checkRepeatingNameChannel(nodeRoot);
+                    checkRepeatingNameSource(nodeRoot);
                 }
 
-            }
-            else
-                std::cout << "ERR> ip_st.xml not found" << std::endl;
+            }            
         }
-    }
+        else
+            std::cout << "ERR> ip_st.xml not found" << std::endl;
+    } 
     catch (const std::exception& e)
     {
         std::cerr << "error: " << e.what();
@@ -755,5 +658,6 @@ int main(int argc, char* argv[])
     {
         std::cerr << "Exception of unknown type!" << std::endl;
     }
+    lib.Free();
     return 0;
 }
