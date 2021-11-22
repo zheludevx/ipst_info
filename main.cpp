@@ -10,6 +10,7 @@
 #include <boost/algorithm/string/predicate.hpp>
 #include <boost/locale.hpp>
 #include <map>
+#include <ModeInfo/MergeXml.h>
 
 bool outputNet(registry::CNode& nodeRoot)
 {
@@ -580,6 +581,14 @@ int main(int argc, char* argv[])
     {
         if(xmlFile.load(sPath))
         {
+            std::string sClarifyingPath = "$(NITAETC)/templates/_Shared/ip_st.xml";
+            if(lib.ExpandString(sClarifyingPath))
+            {
+                const char* pPathDyn = sClarifyingPath.c_str();
+                MergeXml(lib, xmlFile, pPathDyn, NULL);
+            }
+
+
             registry::CNode nodeRoot(&xmlFile, "");
             boost::program_options::variables_map vm;
             if(parseArgs(argc, argv, vm))
@@ -609,7 +618,7 @@ int main(int argc, char* argv[])
                 if(vm.count("source"))
                 {
                     std::string sSource = vm["source"].as<std::string>();
-                    if (checkSourceName(nodeRoot, sSource))
+                    if(checkSourceName(nodeRoot, sSource))
                         outputSourceName(nodeRoot, sSource);
 
                     if(vm.count("info"))
