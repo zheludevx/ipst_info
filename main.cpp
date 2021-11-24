@@ -582,12 +582,10 @@ int main(int argc, char* argv[])
         if(xmlFile.load(sPath))
         {
             std::string sClarifyingPath = "$(NITAETC)/templates/_Shared/ip_st.xml";
-            if(lib.ExpandString(sClarifyingPath))
-            {
-                const char* pPathDyn = sClarifyingPath.c_str();
-                MergeXml(lib, xmlFile, pPathDyn, NULL);
-            }
-
+            lib.ExpandString(sClarifyingPath);
+            registry::CXMLProxy proxyOrg;
+            if(proxyOrg.load(sClarifyingPath))
+               registry::merge( &proxyOrg, proxyOrg.get_root(), &xmlFile, xmlFile.get_root() );
 
             registry::CNode nodeRoot(&xmlFile, "");
             boost::program_options::variables_map vm;
