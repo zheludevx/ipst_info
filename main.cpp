@@ -1,4 +1,4 @@
-﻿#include <ModeInfo.h>
+#include <ModeInfo.h>
 #include <vector>
 #include <string>
 #include <exception>
@@ -11,6 +11,10 @@
 #include <boost/locale.hpp>
 #include <map>
 #include <ModeInfo/MergeXml.h>
+#include <sys/ioctl.h>
+#include <sys/socket.h>
+#include <arpa/inet.h>
+#include <net/if.h>
 
 bool outputNet(registry::CNode& nodeRoot)
 {
@@ -463,6 +467,180 @@ bool checkRepeatingNameSource(registry::CNode& nodeRoot)
     return bRes;
 }
 
+void GetIp(std::vector<std::string>& ip)
+{
+    int fd;
+    char buff[BUFSIZ];
+    struct ifconf ifc;
+    struct ifreq *ifr;
+    ifr = 0;
+
+    if((fd = socket(AF_INET, SOCK_DGRAM, IPPROTO_IP)) < 0)
+        std::cout << "UpdateLocalAddresses> Can't create socket" << std::endl;
+    else
+    {
+        ifc.ifc_len = sizeof(buff);
+        ifc.ifc_buf = buff;
+        if(ioctl(fd, SIOCGIFCONF, &ifc) < 0)
+           std::cout << "UpdateLocalAddresses> ioctl error" << std::endl;
+        else
+        {
+           unsigned int nAddrCount = ifc.ifc_len/sizeof(struct ifreq);
+           for(unsigned int i = 0; i < nAddrCount; i++)
+           {
+               ifr = &ifc.ifc_req[i];
+               if (ifr)
+               {
+                   char ipDotBuf[16];
+                   unsigned long ulAddr_n = ((struct sockaddr_in*)(&ifr->ifr_addr))->sin_addr.s_addr;
+                   inet_ntop(AF_INET, &ulAddr_n, ipDotBuf, (socklen_t )sizeof(ipDotBuf));
+                   unsigned long ulAddr_h = ntohl(ulAddr_n);
+
+                   if(ulAddr_h != INADDR_LOOPBACK)
+                   {
+                       std::cout << "IP Address: \t" << ipDotBuf << std::endl;
+                       ip.push_back(std::string(ipDotBuf));
+                   }
+               }
+               else
+                   break;
+           }
+        }
+        close(fd);
+    }
+}
+
+bool CheckNet(registry::CNode& nodeRoot, boost::program_options::variables_map& vm)
+{
+    bool bRes = false;
+    std::vector<std::string> ip;
+    GetIp(ip);
+    if(ip.size() > 0)
+    {
+        if (nodeRoot.isSubNode("ConfigGroups"))
+        {
+            registry::CNode nodeConfigGroups = nodeRoot.getSubNode("ConfigGroups");
+            std::vector<std::string> vInterfaces;
+            std::vector<std::string> vSuccessfulCheckIp;
+            for (int i = 0; i < nodeConfigGroups.getSubNodeCount(); i++)
+            {
+                registry::CNode nodeItemInterfaces = nodeConfigGroups.getSubNode(i);
+                nodeItemInterfaces.getValue("SendInterfaces", vInterfaces);
+                if (vInterfaces.size() > 0)
+                {
+                    for (unsigned int j = 0; j < vInterfaces.size(); j++)
+                    {
+                        int iScrCheck = 0;
+                        int iScrWhile = 0;
+                        for (unsigned int g = 0; g < ip.size(); g++)
+                        {
+                            std::string sDelim = ".";
+                            size_t sztPrev = 0;
+                            size_t sztPrevIp = 0;
+                            size_t sztNext;
+                            size_t sztNextIp;
+                            size_t sztDelta = sDelim.length();
+                            std::string& sInterfacesValue = vInterfaces[j];
+                            std::string& sIpValue = ip[g];
+                            while((sztNext = sInterfacesValue.find(sDelim, sztPrev)) != std::string::npos
+                                  &&((sztNextIp = sIpValue.find(sDelim, sztPrevIp)) != std::string::npos))
+                            {
+                                if(sInterfacesValue.substr(sztPrev, sztNext-sztPrev) != "255")
+                                {
+                                    if (sInterfacesValue.substr(sztPrev, sztNext-sztPrev) == sIpValue.substr(sztPrevIp, sztNextIp-sztPrevIp))
+                                        iScrCheck++;
+                                }
+                                if(sInterfacesValue.substr(sztPrev, sztNext-sztPrev) == "255")
+                                    iScrCheck++;
+
+                                sztPrev = sztNext + sztDelta;
+                                sztPrevIp = sztNextIp + sztDelta;
+
+                                iScrWhile++;
+                            }
+
+                            if ((sInterfacesValue.rfind(sDelim, sztPrev) != std::string::npos)
+                                    && ((sztNextIp = sIpValue.rfind(sDelim, sztPrevIp)) != std::string::npos))
+                            {
+                                if (sInterfacesValue.substr(sztPrev, sztNext-sztPrev) != "255")
+                                {
+                                    if (sInterfacesValue.substr(sztPrev, sztNext-sztPrev) == sIpValue.substr(sztPrevIp, sztNextIp-sztPrevIp))
+                                    {
+                                        iScrCheck++;
+                                        iScrWhile++;
+                                    }
+                                }
+                                if (sInterfacesValue.substr(sztPrev, sztNext-sztPrev) == "255")
+                                {
+                                    iScrCheck++;
+                                    iScrWhile++;
+                                }
+                            }
+
+                            if(iScrCheck == iScrWhile)
+                            {
+                               vSuccessfulCheckIp.push_back(sIpValue);
+                               bRes = true;
+                            }
+
+                        }
+                    }
+                }
+                else
+                {
+                   for (unsigned j = 0; j < ip.size(); j++)
+                   {
+                      const std::string& sIpValue = ip[j];
+                      vSuccessfulCheckIp.push_back(sIpValue);
+                      bRes = true;
+                   }
+                }
+
+                if (vm.count("net"))
+                {
+                    std::cout << "Local ip adrr: ";
+                    for (unsigned j = 0; j < ip.size(); j++)
+                    {
+                      const std::string& sIpValue = ip[j];
+                      std::cout << sIpValue << "   ";
+                    }
+                    std::cout << std::endl;
+
+                    if (vSuccessfulCheckIp.size() > 0)
+                    {
+                        std::cout << "Successful Check Ip: ";
+                        for (unsigned j = 0; j < vSuccessfulCheckIp.size(); j++)
+                        {
+                           const std::string& sIpValue = vSuccessfulCheckIp[j];
+                           std::cout << sIpValue << "   ";
+                        }
+                        std::cout << std::endl;
+                    }
+                    else
+                        std::cout << "Successful Check Ip > ERR" << std::endl;
+                }
+
+                if (vm.count("check"))
+                {
+                    if (vSuccessfulCheckIp.size() > 0)
+                    {
+                        std::cout << "Successful Check Ip: ";
+                        for (unsigned j = 0; j < vSuccessfulCheckIp.size(); j++)
+                        {
+                           const std::string& sIpValue = vSuccessfulCheckIp[j];
+                           std::cout << sIpValue << "   ";
+                        }
+                        std::cout << std::endl;
+                    }
+                    else
+                        std::cout << "Successful Check Ip > ERR" << std::endl;
+                }
+            }
+        }
+    }
+    return bRes;
+}
+
 bool parseArgs(int ac, char* av[], boost::program_options::variables_map& vm)
 {
     bool bRes = false;
@@ -484,6 +662,7 @@ bool parseArgs(int ac, char* av[], boost::program_options::variables_map& vm)
                 ("info,i",        "show full information - all parameters")
                 ("stat",          "show statistics types, channels, sources")
                 ("check",         "checks the integrity of ip_st configurations - duplicate port numbers, source IDs, etc")
+                ("ip",            "...")
                 ;
         boost::program_options::store(boost::program_options::parse_command_line(ac,av,desc), vm);
 
@@ -570,6 +749,9 @@ bool outputSourcesInfo(registry::CNode& nodeRoot, boost::program_options::variab
     return bRes;
 }
 
+typedef uint32_t uint32;
+#define MAX_IF 10
+
 int main(int argc, char* argv[])
 {
     std::string sPath = "$(NITAETC)/_System/ip_st/ip_st.xml";
@@ -650,6 +832,11 @@ int main(int argc, char* argv[])
                     checkRepeatingSourceId(nodeRoot);
                     checkRepeatingNameChannel(nodeRoot);
                     checkRepeatingNameSource(nodeRoot);
+                }
+
+                if(vm.count("ip"))
+                {
+                    CheckNet(nodeRoot, vm);
                 }
 
             }            
