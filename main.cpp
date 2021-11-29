@@ -33,7 +33,7 @@ bool outputNet(registry::CNode& nodeRoot)
             for (unsigned int j = 0; j < vInterfaces.size(); j++)
             {
                 const std::string& sInterfacesValue = vInterfaces[j];
-                std::cout << "SendInterfaces: " << sInterfacesValue << " ";
+                std::cout << "SendInterfaces (config): " << sInterfacesValue << " ";
             }
         }
     }
@@ -497,10 +497,7 @@ void GetIp(std::vector<std::string>& ip)
                    unsigned long ulAddr_h = ntohl(ulAddr_n);
 
                    if(ulAddr_h != INADDR_LOOPBACK)
-                   {
-                       std::cout << "IP Address: \t" << ipDotBuf << std::endl;
                        ip.push_back(std::string(ipDotBuf));
-                   }
                }
                else
                    break;
@@ -508,12 +505,21 @@ void GetIp(std::vector<std::string>& ip)
         }
         close(fd);
     }
+    if (ip.size() > 0)
+    {
+        std::cout << "Local interfaces: ";
+        for (unsigned int i = 0; i < ip.size(); i++)
+        {
+            const std::string IpValue = ip[i];
+            std::cout << IpValue << "  ";
+        }
+        std::cout << std::endl;
+    }
 }
 
-bool CheckNet(registry::CNode& nodeRoot, boost::program_options::variables_map& vm)
+bool CheckNet(std::vector<std::string>& ip, registry::CNode& nodeRoot, boost::program_options::variables_map& vm)
 {
     bool bRes = false;
-    std::vector<std::string> ip;
     GetIp(ip);
     if(ip.size() > 0)
     {
@@ -597,18 +603,10 @@ bool CheckNet(registry::CNode& nodeRoot, boost::program_options::variables_map& 
                 }
 
                 if (vm.count("net"))
-                {
-                    std::cout << "Local ip adrr: ";
-                    for (unsigned j = 0; j < ip.size(); j++)
-                    {
-                      const std::string& sIpValue = ip[j];
-                      std::cout << sIpValue << "   ";
-                    }
-                    std::cout << std::endl;
-
+                { 
                     if (vSuccessfulCheckIp.size() > 0)
                     {
-                        std::cout << "Successful Check Ip: ";
+                        std::cout << "SendInterfaces (local): ";
                         for (unsigned j = 0; j < vSuccessfulCheckIp.size(); j++)
                         {
                            const std::string& sIpValue = vSuccessfulCheckIp[j];
@@ -617,14 +615,14 @@ bool CheckNet(registry::CNode& nodeRoot, boost::program_options::variables_map& 
                         std::cout << std::endl;
                     }
                     else
-                        std::cout << "Successful Check Ip > ERR" << std::endl;
+                        std::cout << "SendInterfaces (local): ERR" << std::endl;
                 }
 
                 if (vm.count("check"))
                 {
                     if (vSuccessfulCheckIp.size() > 0)
                     {
-                        std::cout << "Successful Check Ip: ";
+                        std::cout << "SendInterfaces (local): ";
                         for (unsigned j = 0; j < vSuccessfulCheckIp.size(); j++)
                         {
                            const std::string& sIpValue = vSuccessfulCheckIp[j];
@@ -633,7 +631,7 @@ bool CheckNet(registry::CNode& nodeRoot, boost::program_options::variables_map& 
                         std::cout << std::endl;
                     }
                     else
-                        std::cout << "Successful Check Ip > ERR" << std::endl;
+                        std::cout << "SendInterfaces (local): ERR" << std::endl;
                 }
             }
         }
@@ -663,6 +661,7 @@ bool parseArgs(int ac, char* av[], boost::program_options::variables_map& vm)
                 ("stat",          "show statistics types, channels, sources")
                 ("check",         "checks the integrity of ip_st configurations - duplicate port numbers, source IDs, etc")
                 ("ip",            "...")
+                ("interfaces",    "Local interfaces")
                 ;
         boost::program_options::store(boost::program_options::parse_command_line(ac,av,desc), vm);
 
@@ -749,9 +748,6 @@ bool outputSourcesInfo(registry::CNode& nodeRoot, boost::program_options::variab
     return bRes;
 }
 
-typedef uint32_t uint32;
-#define MAX_IF 10
-
 int main(int argc, char* argv[])
 {
     std::string sPath = "$(NITAETC)/_System/ip_st/ip_st.xml";
@@ -833,11 +829,12 @@ int main(int argc, char* argv[])
                     checkRepeatingNameChannel(nodeRoot);
                     checkRepeatingNameSource(nodeRoot);
                 }
+                std::vector<std::string> ip;
+                if(vm.count("interfaces"))
+                    GetIp(ip);
 
                 if(vm.count("ip"))
-                {
-                    CheckNet(nodeRoot, vm);
-                }
+                    CheckNet(ip, nodeRoot, vm);
 
             }            
         }
