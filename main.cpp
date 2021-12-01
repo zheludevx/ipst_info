@@ -15,6 +15,7 @@
 #include <sys/socket.h>
 #include <arpa/inet.h>
 #include <net/if.h>
+#include <stdlib.h>
 
 void GetInterfaces(std::vector<std::string>& ip, const std::vector<std::string>& vInterfacesOptions)
 {
@@ -69,6 +70,8 @@ void GetInterfaces(std::vector<std::string>& ip, const std::vector<std::string>&
         }
         std::cout << std::endl;
     }
+    else
+        std::cout << "Local interfaces: ERR" << std::endl;
 }
 
 bool CheckNet(std::vector<std::string>& ip, const std::vector<std::string>& InterfacesOptions, registry::CNode& nodeRoot)
@@ -80,82 +83,83 @@ bool CheckNet(std::vector<std::string>& ip, const std::vector<std::string>& Inte
         if (nodeRoot.isSubNode("ConfigGroups"))
         {
             registry::CNode nodeConfigGroups = nodeRoot.getSubNode("ConfigGroups");
-            std::vector<std::string> vInterfaces;
-            std::vector<std::string> vSuccessfulCheckIp;
+            std::vector<std::string> vInterfaces;   
             for (int i = 0; i < nodeConfigGroups.getSubNodeCount(); i++)
             {
                 registry::CNode nodeItemInterfaces = nodeConfigGroups.getSubNode(i);
-                nodeItemInterfaces.getValue("SendInterfaces", vInterfaces);
-                if (vInterfaces.size() > 0)
+                nodeItemInterfaces.getValue("SendInterfaces", vInterfaces);   
+            }
+
+            std::vector<std::string> vSuccessfulCheckIp;
+            if (vInterfaces.size() > 0)
+            {
+                for (unsigned int i = 0; i < vInterfaces.size(); i++)
                 {
-                    for (unsigned int j = 0; j < vInterfaces.size(); j++)
+                    int iScrCheck = 0;
+                    int iScrWhile = 0;
+                    for (unsigned int j = 0; j < ip.size(); j++)
                     {
-                        int iScrCheck = 0;
-                        int iScrWhile = 0;
-                        for (unsigned int g = 0; g < ip.size(); g++)
+                        std::string sDelim = ".";
+                        size_t sztPrev = 0;
+                        size_t sztPrevIp = 0;
+                        size_t sztNext;
+                        size_t sztNextIp;
+                        size_t sztDelta = sDelim.length();
+                        std::string& sInterfacesValue = vInterfaces[i];
+                        std::string& sIpValue = ip[j];
+                        while((sztNext = sInterfacesValue.find(sDelim, sztPrev)) != std::string::npos
+                              &&((sztNextIp = sIpValue.find(sDelim, sztPrevIp)) != std::string::npos))
                         {
-                            std::string sDelim = ".";
-                            size_t sztPrev = 0;
-                            size_t sztPrevIp = 0;
-                            size_t sztNext;
-                            size_t sztNextIp;
-                            size_t sztDelta = sDelim.length();
-                            std::string& sInterfacesValue = vInterfaces[j];
-                            std::string& sIpValue = ip[g];
-                            while((sztNext = sInterfacesValue.find(sDelim, sztPrev)) != std::string::npos
-                                  &&((sztNextIp = sIpValue.find(sDelim, sztPrevIp)) != std::string::npos))
+                            if(sInterfacesValue.substr(sztPrev, sztNext-sztPrev) != "255")
                             {
-                                if(sInterfacesValue.substr(sztPrev, sztNext-sztPrev) != "255")
-                                {
-                                    if (sInterfacesValue.substr(sztPrev, sztNext-sztPrev) == sIpValue.substr(sztPrevIp, sztNextIp-sztPrevIp))
-                                        iScrCheck++;
-                                }
-                                if(sInterfacesValue.substr(sztPrev, sztNext-sztPrev) == "255")
+                                if (sInterfacesValue.substr(sztPrev, sztNext-sztPrev) == sIpValue.substr(sztPrevIp, sztNextIp-sztPrevIp))
                                     iScrCheck++;
-
-                                sztPrev = sztNext + sztDelta;
-                                sztPrevIp = sztNextIp + sztDelta;
-
-                                iScrWhile++;
                             }
+                            if(sInterfacesValue.substr(sztPrev, sztNext-sztPrev) == "255")
+                                iScrCheck++;
 
-                            if ((sInterfacesValue.rfind(sDelim, sztPrev) != std::string::npos)
-                                    && ((sztNextIp = sIpValue.rfind(sDelim, sztPrevIp)) != std::string::npos))
+                            sztPrev = sztNext + sztDelta;
+                            sztPrevIp = sztNextIp + sztDelta;
+
+                            iScrWhile++;
+                        }
+
+                        if ((sInterfacesValue.rfind(sDelim, sztPrev) != std::string::npos)
+                                && ((sztNextIp = sIpValue.rfind(sDelim, sztPrevIp)) != std::string::npos))
+                        {
+                            if (sInterfacesValue.substr(sztPrev, sztNext-sztPrev) != "255")
                             {
-                                if (sInterfacesValue.substr(sztPrev, sztNext-sztPrev) != "255")
-                                {
-                                    if (sInterfacesValue.substr(sztPrev, sztNext-sztPrev) == sIpValue.substr(sztPrevIp, sztNextIp-sztPrevIp))
-                                    {
-                                        iScrCheck++;
-                                        iScrWhile++;
-                                    }
-                                }
-                                if (sInterfacesValue.substr(sztPrev, sztNext-sztPrev) == "255")
+                                if (sInterfacesValue.substr(sztPrev, sztNext-sztPrev) == sIpValue.substr(sztPrevIp, sztNextIp-sztPrevIp))
                                 {
                                     iScrCheck++;
                                     iScrWhile++;
                                 }
                             }
-
-                            if(iScrCheck == iScrWhile)
+                            if (sInterfacesValue.substr(sztPrev, sztNext-sztPrev) == "255")
                             {
-                               vSuccessfulCheckIp.push_back(sIpValue);
-                               bRes = true;
+                                iScrCheck++;
+                                iScrWhile++;
                             }
-
                         }
+
+                        if(iScrCheck == iScrWhile)
+                           vSuccessfulCheckIp.push_back(sIpValue);
                     }
                 }
-                else
-                {
-                   for (unsigned j = 0; j < ip.size(); j++)
-                   {
-                      const std::string& sIpValue = ip[j];
-                      vSuccessfulCheckIp.push_back(sIpValue);
-                      bRes = true;
-                   }
-                }
+
+                if(!vSuccessfulCheckIp.empty())
+                    bRes = true;
             }
+            else
+            {
+               for (unsigned i = 0; i < ip.size(); i++)
+               {
+                  const std::string& sIpValue = ip[i];
+                  vSuccessfulCheckIp.push_back(sIpValue);
+               }
+               bRes = true;
+            }
+
             if (vInterfaces.empty())
                 std::cout << "SendInterfaces (config): ERR" << std::endl;
             else
@@ -182,6 +186,31 @@ bool CheckNet(std::vector<std::string>& ip, const std::vector<std::string>& Inte
             }
         }
     }
+    else
+    {
+        registry::CNode nodeConfigGroups = nodeRoot.getSubNode("ConfigGroups");
+        std::vector<std::string> vInterfaces;
+        for (int i = 0; i < nodeConfigGroups.getSubNodeCount(); i++)
+        {
+            registry::CNode nodeItemInterfaces = nodeConfigGroups.getSubNode(i);
+            nodeItemInterfaces.getValue("SendInterfaces", vInterfaces);
+        }
+
+        if (vInterfaces.empty())
+            std::cout << "SendInterfaces (config): ERR" << std::endl;
+        else
+        {
+            std::cout << "SendInterfaces (config): ";
+            for(unsigned int i = 0; i < vInterfaces.size(); i++)
+            {
+                const std::string valueConfigInterfaces = vInterfaces[i];
+                std::cout << valueConfigInterfaces << " ";
+            }
+            std::cout<<std::endl;
+        }
+        std::cout << "SendInterfaces (local): ERR" << std::endl;
+    }
+
     return bRes;
 }
 
@@ -189,8 +218,18 @@ bool outputNet(std::vector<std::string>& ip, const std::vector<std::string>& Int
 {
     bool bRes = false;
     std::string sValueSockAddr;
-    nodeRoot.getValue("SockAddr", sValueSockAddr);
-    std::cout << "SockAddr: " << sValueSockAddr << std::endl;
+    nodeRoot.getValue("SockAddr", sValueSockAddr);   
+    std::string sDelim = ".";
+    if((sValueSockAddr.find(sDelim, 0)) != std::string::npos)
+    {
+        std::string sFirstByte = sValueSockAddr.substr(0, sValueSockAddr.find(sDelim, 0)-0);
+        int iValueFirstByte = boost::lexical_cast<int> (sFirstByte);
+        if (iValueFirstByte >= 224 && iValueFirstByte <= 239)
+            std::cout << "SockAddr: " << sValueSockAddr << std::endl;
+        else
+            std::cout << "SockAddr: ERR" << std::endl;
+    }
+
     if(vm.count("interfaces"))
     {
        CheckNet(ip, InterfacesOptions, nodeRoot);
@@ -214,6 +253,7 @@ bool outputNet(std::vector<std::string>& ip, const std::vector<std::string>& Int
             std::cout << std::endl;
         }
     }
+
     bRes = true;
     return bRes;
 }
