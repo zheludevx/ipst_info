@@ -32,35 +32,35 @@ void GetInterfaces(std::vector<std::string>& ip, const std::vector<std::string>&
         ifc.ifc_len = sizeof(buff);
         ifc.ifc_buf = buff;
         if(ioctl(fd, SIOCGIFCONF, &ifc) < 0)
-           std::cout << "UpdateLocalAddresses> ioctl error" << std::endl;
+            std::cout << "UpdateLocalAddresses> ioctl error" << std::endl;
         else
         {
-           unsigned int nAddrCount = ifc.ifc_len/sizeof(struct ifreq);
-           for(unsigned int i = 0; i < nAddrCount; i++)
-           {
-               ifr = &ifc.ifc_req[i];
-               if (ifr)
-               {
-                   char ipDotBuf[16];
-                   unsigned long ulAddr_n = ((struct sockaddr_in*)(&ifr->ifr_addr))->sin_addr.s_addr;
-                   inet_ntop(AF_INET, &ulAddr_n, ipDotBuf, (socklen_t )sizeof(ipDotBuf));
-                   unsigned long ulAddr_h = ntohl(ulAddr_n);
+            unsigned int nAddrCount = ifc.ifc_len/sizeof(struct ifreq);
+            for(unsigned int i = 0; i < nAddrCount; i++)
+            {
+                ifr = &ifc.ifc_req[i];
+                if (ifr)
+                {
+                    char ipDotBuf[16];
+                    unsigned long ulAddr_n = ((struct sockaddr_in*)(&ifr->ifr_addr))->sin_addr.s_addr;
+                    inet_ntop(AF_INET, &ulAddr_n, ipDotBuf, (socklen_t )sizeof(ipDotBuf));
+                    unsigned long ulAddr_h = ntohl(ulAddr_n);
 
-                   if(ulAddr_h != INADDR_LOOPBACK)
-                      for(unsigned int j = 0; j < vInterfacesOptions.size(); j++)
-                      {
-                          const std::string sValueInterfaces = vInterfacesOptions[j];
-                          if(sValueInterfaces == ipDotBuf)
-                            ip.push_back(std::string(ipDotBuf));
-                      }
-               }
-               else
-                   break;
-           }
+                    if(ulAddr_h != INADDR_LOOPBACK)
+                        for(unsigned int j = 0; j < vInterfacesOptions.size(); j++)
+                        {
+                            const std::string sValueInterfaces = vInterfacesOptions[j];
+                            if(sValueInterfaces == ipDotBuf)
+                                ip.push_back(std::string(ipDotBuf));
+                        }
+                }
+                else
+                    break;
+            }
         }
         close(fd);
     }
-    if (ip.size() > 0)
+    if (!ip.empty())
     {
         std::cout << "Local interfaces: ";
         for (unsigned int i = 0; i < ip.size(); i++)
@@ -74,24 +74,23 @@ void GetInterfaces(std::vector<std::string>& ip, const std::vector<std::string>&
         std::cout << "Local interfaces: ERR" << std::endl;
 }
 
-bool CheckNet(std::vector<std::string>& ip, const std::vector<std::string>& InterfacesOptions, registry::CNode& nodeRoot)
+bool CheckNet(const std::vector<std::string>& ip, registry::CNode& nodeRoot)
 {
     bool bRes = false;
-    GetInterfaces(ip, InterfacesOptions);
-    if(ip.size() > 0)
+    if(!ip.empty())
     {
         if (nodeRoot.isSubNode("ConfigGroups"))
         {
             registry::CNode nodeConfigGroups = nodeRoot.getSubNode("ConfigGroups");
-            std::vector<std::string> vInterfaces;   
+            std::vector<std::string> vInterfaces;
             for (int i = 0; i < nodeConfigGroups.getSubNodeCount(); i++)
             {
                 registry::CNode nodeItemInterfaces = nodeConfigGroups.getSubNode(i);
-                nodeItemInterfaces.getValue("SendInterfaces", vInterfaces);   
+                nodeItemInterfaces.getValue("SendInterfaces", vInterfaces);
             }
 
             std::vector<std::string> vSuccessfulCheckIp;
-            if (vInterfaces.size() > 0)
+            if (!vInterfaces.empty())
             {
                 for (unsigned int i = 0; i < vInterfaces.size(); i++)
                 {
@@ -106,7 +105,7 @@ bool CheckNet(std::vector<std::string>& ip, const std::vector<std::string>& Inte
                         size_t sztNextIp;
                         size_t sztDelta = sDelim.length();
                         std::string& sInterfacesValue = vInterfaces[i];
-                        std::string& sIpValue = ip[j];
+                        const std::string& sIpValue = ip[j];
                         while((sztNext = sInterfacesValue.find(sDelim, sztPrev)) != std::string::npos
                               &&((sztNextIp = sIpValue.find(sDelim, sztPrevIp)) != std::string::npos))
                         {
@@ -143,7 +142,7 @@ bool CheckNet(std::vector<std::string>& ip, const std::vector<std::string>& Inte
                         }
 
                         if(iScrCheck == iScrWhile)
-                           vSuccessfulCheckIp.push_back(sIpValue);
+                            vSuccessfulCheckIp.push_back(sIpValue);
                     }
                 }
 
@@ -152,12 +151,12 @@ bool CheckNet(std::vector<std::string>& ip, const std::vector<std::string>& Inte
             }
             else
             {
-               for (unsigned i = 0; i < ip.size(); i++)
-               {
-                  const std::string& sIpValue = ip[i];
-                  vSuccessfulCheckIp.push_back(sIpValue);
-               }
-               bRes = true;
+                for (unsigned i = 0; i < ip.size(); i++)
+                {
+                    const std::string& sIpValue = ip[i];
+                    vSuccessfulCheckIp.push_back(sIpValue);
+                }
+                bRes = true;
             }
 
             if (vInterfaces.empty())
@@ -214,11 +213,11 @@ bool CheckNet(std::vector<std::string>& ip, const std::vector<std::string>& Inte
     return bRes;
 }
 
-bool outputNet(std::vector<std::string>& ip, const std::vector<std::string>& InterfacesOptions, registry::CNode& nodeRoot, boost::program_options::variables_map& vm)
+bool outputNet(const std::vector<std::string>& ip, registry::CNode& nodeRoot, boost::program_options::variables_map& vm)
 {
     bool bRes = false;
     std::string sValueSockAddr;
-    nodeRoot.getValue("SockAddr", sValueSockAddr);   
+    nodeRoot.getValue("SockAddr", sValueSockAddr);
     std::string sDelim = ".";
     if((sValueSockAddr.find(sDelim, 0)) != std::string::npos)
     {
@@ -232,7 +231,7 @@ bool outputNet(std::vector<std::string>& ip, const std::vector<std::string>& Int
 
     if(vm.count("interfaces"))
     {
-       CheckNet(ip, InterfacesOptions, nodeRoot);
+        CheckNet(ip, nodeRoot);
     }
     else
     {
@@ -683,7 +682,7 @@ bool checkRepeatingNameSource(registry::CNode& nodeRoot)
     return bRes;
 }
 
-bool parseArgs(int ac, char* av[], boost::program_options::variables_map& vm, std::vector<std::string>& vInterfacesOptions)
+bool parseArgs(int ac, char* av[], boost::program_options::variables_map& vm)
 {
     bool bRes = false;
     try
@@ -705,7 +704,7 @@ bool parseArgs(int ac, char* av[], boost::program_options::variables_map& vm, st
                 ("stat",          "show statistics types, channels, sources")
                 ("check",         "checks the integrity of ip_st configurations - duplicate port numbers, source IDs, etc")
                 ("interfaces,m",
-                 boost::program_options::value< std::vector<std::string> >(&vInterfacesOptions)->multitoken(),
+                 boost::program_options::value< std::vector<std::string> >()->multitoken(),
                  "Local interfaces")
                 ;
         boost::program_options::store(boost::program_options::parse_command_line(ac,av,desc), vm);
@@ -797,6 +796,7 @@ int main(int argc, char* argv[])
 {
     std::string sPath = "$(NITAETC)/_System/ip_st/ip_st.xml";
     plug_key::CModeInfoPlug lib;
+    lib.Load();
     lib.ExpandString(sPath);
     registry::CXMLProxy xmlFile;
 
@@ -808,19 +808,22 @@ int main(int argc, char* argv[])
             lib.ExpandString(sClarifyingPath);
             registry::CXMLProxy proxyOrg;
             if(proxyOrg.load(sClarifyingPath))
-               registry::merge( &proxyOrg, proxyOrg.get_root(), &xmlFile, xmlFile.get_root() );
+                registry::merge( &proxyOrg, proxyOrg.get_root(), &xmlFile, xmlFile.get_root() );
 
             registry::CNode nodeRoot(&xmlFile, "");
             boost::program_options::variables_map vm;
             std::vector<std::string> vInterfacesOptions;
-            if(parseArgs(argc, argv, vm, vInterfacesOptions))
+            if(parseArgs(argc, argv, vm))
             {
                 std::vector<std::string> ip;
-                if(vm.count("interfaces") && (!vm.count("net")))
+                if(vm.count("interfaces"))
+                {
+                    vInterfacesOptions = vm["interfaces"].as<std::vector<std::string> >();
                     GetInterfaces(ip, vInterfacesOptions);
+                }
 
                 if(vm.count("net"))
-                   outputNet(ip, vInterfacesOptions, nodeRoot, vm);
+                    outputNet(ip, nodeRoot, vm);
 
                 if(vm.count("channel"))
                 {
@@ -832,9 +835,9 @@ int main(int argc, char* argv[])
 
                     if(vm.count("display"))
                     {
-                       std::string sArgDisplay = vm["display"].as<std::string>();
-                       if(sArgDisplay == "s")
-                          outputSourcesByChannel(nodeRoot, sChannel);
+                        std::string sArgDisplay = vm["display"].as<std::string>();
+                        if(sArgDisplay == "s")
+                            outputSourcesByChannel(nodeRoot, sChannel);
                     }
 
                     if(vm.count("info"))
@@ -848,8 +851,8 @@ int main(int argc, char* argv[])
                         outputSourceName(nodeRoot, sSource);
 
                     if(vm.count("info"))
-                       if(checkSourceName(nodeRoot, sSource))
-                          outputSourceInfo(nodeRoot, sSource);
+                        if(checkSourceName(nodeRoot, sSource))
+                            outputSourceInfo(nodeRoot, sSource);
                 }
 
                 if (!vm.count("source"))
@@ -857,7 +860,7 @@ int main(int argc, char* argv[])
                     if (vm.count("display"))
                     {
                         std::string sArgDisplay = vm["display"].as<std::string>();
-                        if (sArgDisplay == "s")   
+                        if (sArgDisplay == "s")
                             if (!vm.count("channel"))
                                 outputSourcesInfo(nodeRoot, vm);
                         if (sArgDisplay == "c")
@@ -880,11 +883,11 @@ int main(int argc, char* argv[])
                     checkRepeatingNameSource(nodeRoot);
                 }
 
-            }            
+            }
         }
         else
             std::cout << "ERR> ip_st.xml not found" << std::endl;
-    } 
+    }
     catch (const std::exception& e)
     {
         std::cerr << "error: " << e.what();
