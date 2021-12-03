@@ -17,8 +17,9 @@
 #include <net/if.h>
 #include <stdlib.h>
 
-void GetInterfaces(std::vector<std::string>& ip, const std::vector<std::string>& vInterfacesOptions)
+bool GetInterfaces(std::vector<std::string>& ip, const std::vector<std::string>& vInterfacesOptions)
 {
+    bool bRes = false;
     int fd;
     char buff[BUFSIZ];
     struct ifconf ifc;
@@ -35,6 +36,7 @@ void GetInterfaces(std::vector<std::string>& ip, const std::vector<std::string>&
             std::cout << "UpdateLocalAddresses> ioctl error" << std::endl;
         else
         {
+            bRes = true;
             unsigned int nAddrCount = ifc.ifc_len/sizeof(struct ifreq);
             for(unsigned int i = 0; i < nAddrCount; i++)
             {
@@ -72,6 +74,52 @@ void GetInterfaces(std::vector<std::string>& ip, const std::vector<std::string>&
     }
     else
         std::cout << "Local interfaces: ERR" << std::endl;
+
+    return bRes;
+}
+
+bool GetLocalInterfaces(std::vector<std::string>& vInterfacesOptions)
+{
+    bool bRes = false;
+    int fd;
+    char buff[BUFSIZ];
+    struct ifconf ifc;
+    struct ifreq *ifr;
+    ifr = 0;
+
+    if((fd = socket(AF_INET, SOCK_DGRAM, IPPROTO_IP)) < 0)
+        std::cout << "UpdateLocalAddresses> Can't create socket" << std::endl;
+    else
+    {
+        ifc.ifc_len = sizeof(buff);
+        ifc.ifc_buf = buff;
+        if(ioctl(fd, SIOCGIFCONF, &ifc) < 0)
+            std::cout << "UpdateLocalAddresses> ioctl error" << std::endl;
+        else
+        {
+            bRes = true;
+            unsigned int nAddrCount = ifc.ifc_len/sizeof(struct ifreq);
+            for(unsigned int i = 0; i < nAddrCount; i++)
+            {
+                ifr = &ifc.ifc_req[i];
+                if (ifr)
+                {
+                    char ipDotBuf[16];
+                    unsigned long ulAddr_n = ((struct sockaddr_in*)(&ifr->ifr_addr))->sin_addr.s_addr;
+                    inet_ntop(AF_INET, &ulAddr_n, ipDotBuf, (socklen_t )sizeof(ipDotBuf));
+                    unsigned long ulAddr_h = ntohl(ulAddr_n);
+
+                    if(ulAddr_h != INADDR_LOOPBACK)
+                        for(unsigned int j = 0; j < vInterfacesOptions.size(); j++)
+                            vInterfacesOptions.push_back(ipDotBuf);
+                }
+                else
+                    break;
+            }
+        }
+        close(fd);
+    }
+    return bRes;
 }
 
 bool CheckNet(const std::vector<std::string>& ip, registry::CNode& nodeRoot)
@@ -141,7 +189,7 @@ bool CheckNet(const std::vector<std::string>& ip, registry::CNode& nodeRoot)
                             }
                         }
 
-                        if(iScrCheck == iScrWhile)
+                        if((iScrCheck == iScrWhile) && iScrWhile == 4)
                             vSuccessfulCheckIp.push_back(sIpValue);
                     }
                 }
@@ -213,26 +261,72 @@ bool CheckNet(const std::vector<std::string>& ip, registry::CNode& nodeRoot)
     return bRes;
 }
 
+bool checkSockAddr(const std::string& sValueSockAddr)
+{
+    bool bRes = false;
+    std::string sDelim = ".";
+    size_t sztPrev = 0;
+    size_t sztNext;
+    size_t sztDelta = sDelim.length();
+    int iScrWhile = 0;
+    int iScrCheck = 0;
+    if ((sztNext = sValueSockAddr.find(sDelim, sztPrev)) != std::string::npos)
+    {
+        std::string sFirstByte = sValueSockAddr.substr(sztPrev, sztNext-sztPrev);
+        int iValueFirstByte = boost::lexical_cast<int> (sFirstByte);
+        if (iValueFirstByte >= 224 && iValueFirstByte <= 239)
+        {
+            sztPrev = sztNext + sztDelta;
+            while ((sztNext = sValueSockAddr.find(sDelim, sztPrev)) != std::string::npos)
+            {
+                std::string sByte = sValueSockAddr.substr(sztPrev, sztNext-sztPrev);
+                int iValueByte = boost::lexical_cast<int> (sByte);
+                if (iValueByte > -1 && iValueByte < 256)
+                    iScrCheck++;
+                iScrWhile++;
+                sztPrev = sztNext + sztDelta;
+            }
+
+            if((sValueSockAddr.rfind(sDelim, sztPrev)) != std::string::npos)
+            {
+                std::string sByte = sValueSockAddr.substr(sztPrev, sztNext-sztPrev);
+                int iValueByte = boost::lexical_cast<int> (sByte);
+                if (iValueByte > -1 && iValueByte < 256)
+                    iScrCheck++;
+                iScrWhile++;
+            }
+
+            if ((iScrCheck == iScrWhile) && iScrWhile == 3)
+                bRes = true;
+        }
+    }
+    return bRes;
+}
+
+bool setSockAddr(registry::CNode& nodeRoot, std::string& sValueSockAddr)
+{
+    bool bRes = false;
+    if(checkSockAddr(sValueSockAddr))
+    {
+       nodeRoot.setValue("SockAddr", sValueSockAddr);
+       bRes = true;
+    }
+    else
+       std::cout << "SockAddr: ERR" << std::endl;
+
+    return bRes;
+}
+
 bool outputNet(const std::vector<std::string>& ip, registry::CNode& nodeRoot, boost::program_options::variables_map& vm)
 {
     bool bRes = false;
     std::string sValueSockAddr;
     nodeRoot.getValue("SockAddr", sValueSockAddr);
-    std::string sDelim = ".";
-    if((sValueSockAddr.find(sDelim, 0)) != std::string::npos)
-    {
-        std::string sFirstByte = sValueSockAddr.substr(0, sValueSockAddr.find(sDelim, 0)-0);
-        int iValueFirstByte = boost::lexical_cast<int> (sFirstByte);
-        if (iValueFirstByte >= 224 && iValueFirstByte <= 239)
-            std::cout << "SockAddr: " << sValueSockAddr << std::endl;
-        else
-            std::cout << "SockAddr: ERR" << std::endl;
-    }
+    if(checkSockAddr(sValueSockAddr))
+       std::cout << "SockAddr: " << sValueSockAddr << std::endl;
 
     if(vm.count("interfaces"))
-    {
         CheckNet(ip, nodeRoot);
-    }
     else
     {
         if (nodeRoot.isSubNode("ConfigGroups"))
@@ -691,6 +785,12 @@ bool parseArgs(int ac, char* av[], boost::program_options::variables_map& vm)
         desc.add_options()
                 ("help,h",        "show help")
                 ("net,n",         "show net")
+                ("interfaces,m",
+                 boost::program_options::value< std::vector<std::string> >()->multitoken(),
+                 "show local interfaces")
+                ("mcast",
+                 boost::program_options::value<std::string>(),
+                 "set SockAddr")
                 ("display,d",
                  boost::program_options::value<std::string>(),
                  " arg is c or s: c - display channels, s - display sources")
@@ -702,10 +802,7 @@ bool parseArgs(int ac, char* av[], boost::program_options::variables_map& vm)
                  "show info for named source")
                 ("info,i",        "show full information - all parameters")
                 ("stat",          "show statistics types, channels, sources")
-                ("check",         "checks the integrity of ip_st configurations - duplicate port numbers, source IDs, etc")
-                ("interfaces,m",
-                 boost::program_options::value< std::vector<std::string> >()->multitoken(),
-                 "Local interfaces")
+                ("check",         "checks the integrity of ip_st configurations - duplicate port numbers, source IDs, etc")             
                 ;
         boost::program_options::store(boost::program_options::parse_command_line(ac,av,desc), vm);
 
@@ -820,6 +917,14 @@ int main(int argc, char* argv[])
                 {
                     vInterfacesOptions = vm["interfaces"].as<std::vector<std::string> >();
                     GetInterfaces(ip, vInterfacesOptions);
+                }
+                else
+                    GetLocalInterfaces(vInterfacesOptions);
+
+                if (vm.count("mcast"))
+                {
+                    std::string sSockAddr = vm["mcast"].as<std::string>();
+                    setSockAddr(nodeRoot, sSockAddr);
                 }
 
                 if(vm.count("net"))
