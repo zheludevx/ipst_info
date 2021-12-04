@@ -17,7 +17,7 @@
 #include <net/if.h>
 #include <stdlib.h>
 
-bool GetInterfaces(std::vector<std::string>& ip, const std::vector<std::string>& vInterfacesOptions)
+bool GetLocalInterfaces(std::vector<std::string>& ip, const std::vector<std::string>& vInterfacesOptions)
 {
     bool bRes = false;
     int fd;
@@ -78,7 +78,7 @@ bool GetInterfaces(std::vector<std::string>& ip, const std::vector<std::string>&
     return bRes;
 }
 
-bool GetLocalInterfaces(std::vector<std::string>& vInterfacesOptions)
+bool GetAllLocalInterfaces(std::vector<std::string>& vInterfacesOptions)
 {
     bool bRes = false;
     int fd;
@@ -303,17 +303,27 @@ bool checkSockAddr(const std::string& sValueSockAddr)
     return bRes;
 }
 
-bool setSockAddr(registry::CNode& nodeRoot, std::string& sValueSockAddr)
+bool setSockAddr(const std::string& sValueSockAddr, const std::string& sPath)
 {
     bool bRes = false;
-    if(checkSockAddr(sValueSockAddr))
+    registry::CXMLProxy xmlFile;
+    if(xmlFile.load(sPath))
     {
-       nodeRoot.setValue("SockAddr", sValueSockAddr);
-       bRes = true;
-    }
-    else
-       std::cout << "SockAddr: ERR" << std::endl;
+        registry::CNode nodeRoot(&xmlFile);
+        if(checkSockAddr(sValueSockAddr))
+        {
+            std::string sBeforeSockAddr;
+            nodeRoot.getValue("SockAddr", sBeforeSockAddr);
+            std::cout << "SockAddr: " << sValueSockAddr << " -> " << sBeforeSockAddr << std::endl;
+            nodeRoot.setValue("SockAddr", sValueSockAddr);
+            bRes = true;
+        }
+        else
+            std::cout << "SockAddr: ERR" << std::endl;
 
+        if(!xmlFile.save(sPath))
+            std::cout << "ERR>> changes have not been saved" << std::endl;
+    }
     return bRes;
 }
 
@@ -322,8 +332,8 @@ bool outputNet(const std::vector<std::string>& ip, registry::CNode& nodeRoot, bo
     bool bRes = false;
     std::string sValueSockAddr;
     nodeRoot.getValue("SockAddr", sValueSockAddr);
-    if(checkSockAddr(sValueSockAddr))
-       std::cout << "SockAddr: " << sValueSockAddr << std::endl;
+    if (checkSockAddr(sValueSockAddr))
+        std::cout << "SockAddr: " << sValueSockAddr << std::endl;
 
     if(vm.count("interfaces"))
         CheckNet(ip, nodeRoot);
@@ -916,15 +926,15 @@ int main(int argc, char* argv[])
                 if(vm.count("interfaces"))
                 {
                     vInterfacesOptions = vm["interfaces"].as<std::vector<std::string> >();
-                    GetInterfaces(ip, vInterfacesOptions);
+                    GetLocalInterfaces(ip, vInterfacesOptions);
                 }
                 else
-                    GetLocalInterfaces(vInterfacesOptions);
+                    GetAllLocalInterfaces(vInterfacesOptions);
 
                 if (vm.count("mcast"))
                 {
                     std::string sSockAddr = vm["mcast"].as<std::string>();
-                    setSockAddr(nodeRoot, sSockAddr);
+                    setSockAddr(sSockAddr, sClarifyingPath);
                 }
 
                 if(vm.count("net"))
