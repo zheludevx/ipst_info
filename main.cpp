@@ -378,37 +378,26 @@ bool setInterfaces(const std::vector<std::string>& sInterfaces, const std::strin
             else
                 std::cout << "ERR ";
 
-            std::string sNewInterfaces;
+            std::vector<std::string> v_sNewInterfaces;
             for (unsigned int i = 0; i < sInterfaces.size(); i++)
             {
                 const std::string sValueInterface = sInterfaces[i];
                 if(checkInterface(sValueInterface))
-                {
-                    if(i != (sInterfaces.size() - 1))
-                        sNewInterfaces = sNewInterfaces + (sValueInterface + "\\x00");
-
-                    if(i == (sInterfaces.size() - 1))
-                        sNewInterfaces = sNewInterfaces + (sValueInterface + "\\x00\\x00");
-                }
+                    v_sNewInterfaces.push_back(sValueInterface);
             }
 
-            std::vector<std::string> v_sForOutputNewInterfaces;
-            for (int i = 0; i < nodeConfigGroups.getSubNodeCount(); i++)
+            if(nodeConfigGroups.isSubNode("__Default"))
             {
-                if(nodeConfigGroups.isSubNode("__Default"))
-                {
-                    registry::CNode nodeItemDefault = nodeConfigGroups.getSubNode(i);
-                    nodeItemDefault.setValue("SendInterfaces", sNewInterfaces);
-                    nodeItemDefault.getValue("SendInterfaces", v_sForOutputNewInterfaces);
-                }
+                registry::CNode nodeItemDefault = nodeConfigGroups.getSubNode("__Default");
+                nodeItemDefault.setValue("SendInterfaces", v_sNewInterfaces);
             }
 
             std::cout << "-> ";
-            if(!v_sForOutputNewInterfaces.empty())
+            if(!v_sNewInterfaces.empty())
             {
-                for (unsigned int i = 0; i < v_sForOutputNewInterfaces.size(); i++)
+                for (unsigned int i = 0; i < v_sNewInterfaces.size(); i++)
                 {
-                    const std::string sValueInterface = v_sForOutputNewInterfaces[i];
+                    const std::string sValueInterface = v_sNewInterfaces[i];
                     std::cout << sValueInterface << " ";
                 }
             }
