@@ -143,7 +143,6 @@ bool CheckNet(const std::vector<std::string>& ip, registry::CNode& nodeRoot)
                 for (unsigned int i = 0; i < vInterfaces.size(); i++)
                 {
                     int iScrCheck = 0;
-                    int iScrWhile = 0;
                     for (unsigned int j = 0; j < ip.size(); j++)
                     {
                         std::string sDelim = ".";
@@ -167,8 +166,6 @@ bool CheckNet(const std::vector<std::string>& ip, registry::CNode& nodeRoot)
 
                             sztPrev = sztNext + sztDelta;
                             sztPrevIp = sztNextIp + sztDelta;
-
-                            iScrWhile++;
                         }
 
                         if ((sInterfacesValue.rfind(sDelim, sztPrev) != std::string::npos)
@@ -177,19 +174,13 @@ bool CheckNet(const std::vector<std::string>& ip, registry::CNode& nodeRoot)
                             if (sInterfacesValue.substr(sztPrev, sztNext-sztPrev) != "255")
                             {
                                 if (sInterfacesValue.substr(sztPrev, sztNext-sztPrev) == sIpValue.substr(sztPrevIp, sztNextIp-sztPrevIp))
-                                {
                                     iScrCheck++;
-                                    iScrWhile++;
-                                }
                             }
                             if (sInterfacesValue.substr(sztPrev, sztNext-sztPrev) == "255")
-                            {
                                 iScrCheck++;
-                                iScrWhile++;
-                            }
                         }
 
-                        if((iScrCheck == iScrWhile) && iScrWhile == 4)
+                        if(iScrCheck == 4)
                             vSuccessfulCheckIp.push_back(sIpValue);
                     }
                 }
@@ -268,7 +259,6 @@ bool checkSockAddr(const std::string& sValueSockAddr)
     size_t sztPrev = 0;
     size_t sztNext;
     size_t sztDelta = sDelim.length();
-    int iScrWhile = 0;
     int iScrCheck = 0;
     if ((sztNext = sValueSockAddr.find(sDelim, sztPrev)) != std::string::npos)
     {
@@ -283,7 +273,6 @@ bool checkSockAddr(const std::string& sValueSockAddr)
                 int iValueByte = boost::lexical_cast<int> (sByte);
                 if (iValueByte > -1 && iValueByte < 256)
                     iScrCheck++;
-                iScrWhile++;
                 sztPrev = sztNext + sztDelta;
             }
 
@@ -293,36 +282,146 @@ bool checkSockAddr(const std::string& sValueSockAddr)
                 int iValueByte = boost::lexical_cast<int> (sByte);
                 if (iValueByte > -1 && iValueByte < 256)
                     iScrCheck++;
-                iScrWhile++;
             }
 
-            if ((iScrCheck == iScrWhile) && iScrWhile == 3)
+            if (iScrCheck == 3)
                 bRes = true;
         }
     }
     return bRes;
 }
 
+bool checkInterface(const std::string sValueInterface)
+{
+     bool bRes = false;
+     std::string sDelim = ".";
+     size_t sztPrev = 0;
+     size_t sztNext;
+     size_t sztDelta = sDelim.length();
+     int iScrCheck = 0;
+     while((sztNext = sValueInterface.find(sDelim, sztPrev)) != std::string::npos)
+     {
+         std::string sByte = sValueInterface.substr(sztPrev, sztNext-sztPrev);
+         int iValueByte = boost::lexical_cast<int> (sByte);
+         if (iValueByte > -1 && iValueByte < 256)
+             iScrCheck++;
+
+         sztPrev = sztNext + sztDelta;
+     }
+
+     if((sValueInterface.rfind(sDelim, sztPrev)) != std::string::npos)
+     {
+         std::string sByte = sValueInterface.substr(sztPrev, sztNext-sztPrev);
+         int iValueByte = boost::lexical_cast<int> (sByte);
+         if (iValueByte > -1 && iValueByte < 256)
+             iScrCheck++;
+     }
+
+     if (iScrCheck == 4)
+         bRes = true;
+
+     return bRes;
+}
+
 bool setSockAddr(const std::string& sValueSockAddr, const std::string& sPath)
+{
+    bool bRes = false;
+    if(checkSockAddr(sValueSockAddr))
+    {
+        registry::CXMLProxy xmlFile;
+        if(xmlFile.load(sPath))
+        {
+            registry::CNode nodeRoot(&xmlFile);
+            std::string sBeforeSockAddr;
+            nodeRoot.getValue("SockAddr", sBeforeSockAddr);
+            std::cout << "SockAddr: " << sBeforeSockAddr << " -> " << sValueSockAddr << std::endl;
+            nodeRoot.setValue("SockAddr", sValueSockAddr);
+
+            if(xmlFile.save(sPath))
+                bRes = true;
+            else
+                std::cout << "ERR>> changes have not been saved" << std::endl;
+        }
+    }
+    else
+        std::cout << "SockAddr: ERR" << std::endl;
+
+    return bRes;
+}
+
+bool setInterfaces(const std::vector<std::string>& sInterfaces, const std::string& sPath)
 {
     bool bRes = false;
     registry::CXMLProxy xmlFile;
     if(xmlFile.load(sPath))
     {
         registry::CNode nodeRoot(&xmlFile);
-        if(checkSockAddr(sValueSockAddr))
+        if(nodeRoot.isSubNode("ConfigGroups"))
         {
-            std::string sBeforeSockAddr;
-            nodeRoot.getValue("SockAddr", sBeforeSockAddr);
-            std::cout << "SockAddr: " << sValueSockAddr << " -> " << sBeforeSockAddr << std::endl;
-            nodeRoot.setValue("SockAddr", sValueSockAddr);
-            bRes = true;
-        }
-        else
-            std::cout << "SockAddr: ERR" << std::endl;
+            registry::CNode nodeConfigGroups = nodeRoot.getSubNode("ConfigGroups");
+            std::vector<std::string> sBeforeInterfaces;
+            for (int i = 0; i < nodeConfigGroups.getSubNodeCount(); i++)
+            {
+                registry::CNode nodeItemInterfaces = nodeConfigGroups.getSubNode(i);
+                nodeItemInterfaces.getValue("SendInterfaces", sBeforeInterfaces);
+            }
 
-        if(!xmlFile.save(sPath))
-            std::cout << "ERR>> changes have not been saved" << std::endl;
+            std::cout << "Interfaces: ";
+            if(!sBeforeInterfaces.empty())
+            {
+                for (unsigned int i = 0; i < sBeforeInterfaces.size(); i++)
+                {
+                    const std::string sValueInterface = sBeforeInterfaces[i];
+                    std::cout << sValueInterface << " ";
+                }
+            }
+            else
+                std::cout << "ERR ";
+
+            std::string sNewInterfaces;
+            for (unsigned int i = 0; i < sInterfaces.size(); i++)
+            {
+                const std::string sValueInterface = sInterfaces[i];
+                if(checkInterface(sValueInterface))
+                {
+                    if(i != (sInterfaces.size() - 1))
+                        sNewInterfaces = sNewInterfaces + (sValueInterface + "\\x00");
+
+                    if(i == (sInterfaces.size() - 1))
+                        sNewInterfaces = sNewInterfaces + (sValueInterface + "\\x00\\x00");
+                }
+            }
+
+            std::vector<std::string> v_sForOutputNewInterfaces;
+            for (int i = 0; i < nodeConfigGroups.getSubNodeCount(); i++)
+            {
+                if(nodeConfigGroups.isSubNode("__Default"))
+                {
+                    registry::CNode nodeItemDefault = nodeConfigGroups.getSubNode(i);
+                    nodeItemDefault.setValue("SendInterfaces", sNewInterfaces);
+                    nodeItemDefault.getValue("SendInterfaces", v_sForOutputNewInterfaces);
+                }
+            }
+
+            std::cout << "-> ";
+            if(!v_sForOutputNewInterfaces.empty())
+            {
+                for (unsigned int i = 0; i < v_sForOutputNewInterfaces.size(); i++)
+                {
+                    const std::string sValueInterface = v_sForOutputNewInterfaces[i];
+                    std::cout << sValueInterface << " ";
+                }
+            }
+            else
+                std::cout << "ERR";
+            std::cout << std::endl;
+
+            if(xmlFile.save(sPath))
+                bRes = true;
+            else
+                std::cout << "ERR>> changes have not been saved" << std::endl;
+
+        }
     }
     return bRes;
 }
@@ -347,12 +446,19 @@ bool outputNet(const std::vector<std::string>& ip, registry::CNode& nodeRoot, bo
             {
                 registry::CNode nodeItemInterfaces = nodeConfigGroups.getSubNode(i);
                 nodeItemInterfaces.getValue("SendInterfaces", vInterfaces);
-                for (unsigned int j = 0; j < vInterfaces.size(); j++)
+            }
+            if(!vInterfaces.empty())
+            {
+                std::cout << "SendInterfaces (config): ";
+                for (unsigned int i = 0; i < vInterfaces.size(); i++)
                 {
-                    const std::string& sInterfacesValue = vInterfaces[j];
-                    std::cout << "SendInterfaces: " << sInterfacesValue << " ";
+                    const std::string& sInterfacesValue = vInterfaces[i];
+                    std::cout << sInterfacesValue << " ";
                 }
             }
+            else
+                 std::cout << "SendInterfaces (config): ERR";
+
             std::cout << std::endl;
         }
     }
@@ -801,6 +907,9 @@ bool parseArgs(int ac, char* av[], boost::program_options::variables_map& vm)
                 ("mcast",
                  boost::program_options::value<std::string>(),
                  "set SockAddr")
+                ("ip",
+                 boost::program_options::value< std::vector<std::string> >()->multitoken(),
+                 "set Interfaces")
                 ("display,d",
                  boost::program_options::value<std::string>(),
                  " arg is c or s: c - display channels, s - display sources")
@@ -935,6 +1044,12 @@ int main(int argc, char* argv[])
                 {
                     std::string sSockAddr = vm["mcast"].as<std::string>();
                     setSockAddr(sSockAddr, sClarifyingPath);
+                }
+
+                if(vm.count("ip"))
+                {
+                    std::vector<std::string> sInterfaces = vm["ip"].as<std::vector<std::string> >();
+                    setInterfaces(sInterfaces, sClarifyingPath);
                 }
 
                 if(vm.count("net"))
